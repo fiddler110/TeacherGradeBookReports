@@ -36,6 +36,7 @@ A self-hosted web application for generating professional per-student PDF grade 
 - **CSRF protection** — all state-changing requests are protected by Flask-WTF tokens.
 - **Parallel PDF generation** — all reports for an upload are built concurrently via `ThreadPoolExecutor`.
 - **Session ownership isolation** — users can only access their own generated reports.
+- **Automatic temp file cleanup** — all uploaded spreadsheets and generated PDFs are deleted from the server the moment a user logs out. Any sessions not explicitly closed are swept after 24 hours.
 - **Hardened Docker image** — multi-stage build, non-root user, read-only root filesystem, all Linux capabilities dropped.
 
 ---
@@ -311,23 +312,24 @@ ReportGen/
 
 The following controls are implemented:
 
-| Control                   | Implementation                                                                                           |
-| ------------------------- | -------------------------------------------------------------------------------------------------------- |
-| CSRF protection           | Flask-WTF tokens on all POST forms; token embedded in HTML meta tag for JS requests                      |
-| Session cookie hardening  | `HttpOnly`, `SameSite=Lax`, `Secure` (configurable)                                                      |
-| Brute-force protection    | Flask-Limiter — login endpoint capped at 10 requests/minute per IP                                       |
-| Password complexity       | Minimum 8 characters, at least one letter and one digit                                                  |
-| Open redirect prevention  | Redirect targets validated against the current host before following                                     |
-| Path traversal prevention | Upload session IDs validated as UUIDs; filenames sanitised to `[A-Za-z0-9_\-.]`                          |
-| Session ownership         | Users can only access reports from their own upload sessions                                             |
-| Stale session cleanup     | Sessions and temp files older than 24 hours are deleted on each new upload                               |
-| Security response headers | `X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff`, `Referrer-Policy`, `Content-Security-Policy` |
-| File upload validation    | Extension allowlist (`.xlsx`, `.xls`), 10 MB size cap enforced before reading                            |
-| Non-root container        | Process runs as `appuser` (uid 1001); `USER` directive in Dockerfile                                     |
-| Read-only root filesystem | `read_only: true` in Compose; `/tmp` provided via tmpfs                                                  |
-| No new privileges         | `security_opt: no-new-privileges:true` in Compose                                                        |
-| All capabilities dropped  | `cap_drop: ALL` in Compose                                                                               |
-| Multi-stage Docker build  | Build tools, pip, and dev headers are absent from the final runtime image                                |
+| Control                     | Implementation                                                                                                  |
+| --------------------------- | --------------------------------------------------------------------------------------------------------------- |
+| CSRF protection             | Flask-WTF tokens on all POST forms; token embedded in HTML meta tag for JS requests                             |
+| Session cookie hardening    | `HttpOnly`, `SameSite=Lax`, `Secure` (configurable)                                                             |
+| Brute-force protection      | Flask-Limiter — login endpoint capped at 10 requests/minute per IP                                              |
+| Password complexity         | Minimum 8 characters, at least one letter and one digit                                                         |
+| Open redirect prevention    | Redirect targets validated against the current host before following                                            |
+| Path traversal prevention   | Upload session IDs validated as UUIDs; filenames sanitised to `[A-Za-z0-9_\-.]`                                 |
+| Session ownership           | Users can only access reports from their own upload sessions                                                    |
+| Temp file cleanup on logout | All upload session directories and generated PDFs are removed when the user logs out (`_cleanup_user_sessions`) |
+| Stale session cleanup       | Sessions and temp files older than 24 hours are deleted on each new upload as a fallback                        |
+| Security response headers   | `X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff`, `Referrer-Policy`, `Content-Security-Policy`        |
+| File upload validation      | Extension allowlist (`.xlsx`, `.xls`), 10 MB size cap enforced before reading                                   |
+| Non-root container          | Process runs as `appuser` (uid 1001); `USER` directive in Dockerfile                                            |
+| Read-only root filesystem   | `read_only: true` in Compose; `/tmp` provided via tmpfs                                                         |
+| No new privileges           | `security_opt: no-new-privileges:true` in Compose                                                               |
+| All capabilities dropped    | `cap_drop: ALL` in Compose                                                                                      |
+| Multi-stage Docker build    | Build tools, pip, and dev headers are absent from the final runtime image                                       |
 
 ---
 

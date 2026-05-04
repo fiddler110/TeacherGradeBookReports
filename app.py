@@ -14,7 +14,7 @@ import zipfile
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from contextlib import contextmanager
 from pathlib import Path
-from urllib.parse import urlparse, urljoin
+from urllib.parse import urlparse
 
 from flask import (
     Flask,
@@ -225,10 +225,14 @@ def load_user(user_id: str):
 
 
 def _is_safe_redirect(target: str) -> bool:
-    """Prevent open-redirect by ensuring target stays on the same host."""
-    ref = urlparse(request.host_url)
-    test = urlparse(urljoin(request.host_url, target))
-    return test.scheme in ("http", "https") and ref.netloc == test.netloc
+    """Allow only relative paths on the same origin (no scheme, no netloc)."""
+    parsed = urlparse(target)
+    return (
+        not parsed.scheme
+        and not parsed.netloc
+        and parsed.path.startswith("/")
+        and not parsed.path.startswith("//")
+    )
 
 
 # ── Security headers (#3) ──────────────────────────────────────────────────────
@@ -329,7 +333,7 @@ def login():
         user = _db_get_user(username)
         if user and check_password_hash(user.password_hash, password):
             login_user(user)
-            next_page = request.form.get("next", "").strip()
+            next_page = request.args.get("next", "").strip()
             if next_page and _is_safe_redirect(next_page):
                 return redirect(next_page)
             return redirect(url_for("index"))
@@ -375,7 +379,15 @@ def profile():
             updates.append("Full name updated.")
 
         if email != current_user.email:
-            if email and not re.match(r'^[^@\s]+@[^@\s]+\.[^@\s]+$', email):
+            _parts = email.split("@") if email else []
+            if email and (
+                len(email) > 254
+                or len(_parts) != 2
+                or not _parts[0]
+                or not _parts[1]
+                or "." not in _parts[1]
+                or any(c in email for c in (" ", "\t", "\n", "\r"))
+            ):
                 errors.append("Please enter a valid school email address.")
             else:
                 get_db().execute(
@@ -612,7 +624,12 @@ def view_report(uid: str, filename: str):
     uid = _safe_uid(uid)
     _check_session_owner(uid)
     safe_name = Path(filename).name   # strip directory components
-    pdf_path = _session_dir(uid) / "reports" / safe_name
+    if _SAFE_FILENAME_RE.search(safe_name):
+        abort(400)
+    reports_dir = _session_dir(uid) / "reports"
+    pdf_path = reports_dir / safe_name
+    if not pdf_path.resolve().is_relative_to(reports_dir.resolve()):
+        abort(400)
     if not pdf_path.exists() or pdf_path.suffix.lower() != ".pdf":
         abort(404)
     return send_file(
@@ -629,7 +646,12 @@ def download_report(uid: str, filename: str):
     uid = _safe_uid(uid)
     _check_session_owner(uid)
     safe_name = Path(filename).name
-    pdf_path = _session_dir(uid) / "reports" / safe_name
+    if _SAFE_FILENAME_RE.search(safe_name):
+        abort(400)
+    reports_dir = _session_dir(uid) / "reports"
+    pdf_path = reports_dir / safe_name
+    if not pdf_path.resolve().is_relative_to(reports_dir.resolve()):
+        abort(400)
     if not pdf_path.exists() or pdf_path.suffix.lower() != ".pdf":
         abort(404)
     return send_file(

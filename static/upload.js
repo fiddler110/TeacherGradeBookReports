@@ -8,9 +8,16 @@ const submitBtn = document.getElementById("submit-btn");
 const dropZone = document.getElementById("drop-zone");
 
 function applyFile(file) {
-  fileLabel.innerHTML =
-    `<i class="bi bi-file-earmark-check me-1" style="color:var(--scdsb-dark)"></i>` +
-    `<span style="color:var(--scdsb-dark);font-weight:600">${file.name}</span>`;
+  fileLabel.textContent = "";
+  const icon = document.createElement("i");
+  icon.className = "bi bi-file-earmark-check me-1";
+  icon.style.color = "var(--scdsb-dark)";
+  const span = document.createElement("span");
+  span.style.color = "var(--scdsb-dark)";
+  span.style.fontWeight = "600";
+  span.textContent = file.name;  // textContent never parsed as HTML
+  fileLabel.appendChild(icon);
+  fileLabel.appendChild(span);
   submitBtn.disabled = false;
 }
 

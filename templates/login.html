@@ -104,9 +104,8 @@
         </div>
         {% endfor %} {% endif %} {% endwith %}
 
-        <form method="post" action="{{ url_for('login') }}">
+        <form method="post" action="{{ url_for('login', next=next) if next else url_for('login') }}">
           <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
-          <input type="hidden" name="next" value="{{ next }}" />
           <div class="mb-3">
             <label
               for="username"
