@@ -1,0 +1,158 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Sign In &middot; Grade Report Generator</title>
+    <link href="/static/vendor/bootstrap.min.css" rel="stylesheet" />
+    <link href="/static/vendor/bootstrap-icons.min.css" rel="stylesheet" />
+    <meta name="csrf-token" content="{{ csrf_token() }}" />
+    <style>
+      :root {
+        --scdsb-dark: #003f5a;
+        --scdsb-mid: #00476c;
+        --scdsb-light: #b1d2e1;
+        --scdsb-pale: #dff0f6;
+      }
+      body {
+        background: #f0f4f8;
+        min-height: 100vh;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+      }
+      .login-card {
+        width: 100%;
+        max-width: 420px;
+        background: #fff;
+        border-radius: 12px;
+        overflow: hidden;
+        box-shadow: 0 4px 24px rgba(0, 63, 90, 0.13);
+      }
+      .login-header {
+        background: var(--scdsb-dark);
+        border-bottom: 4px solid var(--scdsb-light);
+        padding: 1.5rem 2rem;
+      }
+      .login-body {
+        padding: 2rem;
+      }
+      .btn-login {
+        background: var(--scdsb-dark);
+        border-color: var(--scdsb-dark);
+        color: #fff;
+        font-weight: 600;
+      }
+      .btn-login:hover {
+        background: var(--scdsb-mid);
+        border-color: var(--scdsb-mid);
+        color: #fff;
+      }
+      .form-control:focus {
+        border-color: var(--scdsb-light);
+        box-shadow: 0 0 0 0.2rem rgba(177, 210, 225, 0.4);
+      }
+      footer {
+        color: #999;
+        font-size: 0.78rem;
+        margin-top: 1.5rem;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="login-card">
+      <div class="login-header d-flex align-items-center gap-3">
+        <i class="bi bi-mortarboard-fill fs-3 text-white opacity-75"></i>
+        <div>
+          <div
+            class="text-white fw-bold"
+            style="font-size: 1.25rem; line-height: 1.1"
+          >
+            Grade Report Generator
+          </div>
+          <div style="color: var(--scdsb-light); font-size: 0.82rem">
+            Simcoe County District School Board
+          </div>
+        </div>
+      </div>
+
+      <div class="login-body">
+        <h2
+          class="fw-bold mb-1"
+          style="color: var(--scdsb-dark); font-size: 1.2rem"
+        >
+          Sign In
+        </h2>
+        <p class="text-muted small mb-4">
+          Enter your credentials to access the report generator.
+        </p>
+
+        {% with messages = get_flashed_messages() %} {% if messages %} {% for
+        msg in messages %}
+        <div
+          class="alert alert-warning alert-dismissible fade show d-flex align-items-start gap-2 py-2"
+          role="alert"
+        >
+          <i class="bi bi-exclamation-triangle-fill mt-1 flex-shrink-0"></i>
+          <span>{{ msg }}</span>
+          <button
+            type="button"
+            class="btn-close ms-auto"
+            data-bs-dismiss="alert"
+          ></button>
+        </div>
+        {% endfor %} {% endif %} {% endwith %}
+
+        <form method="post" action="{{ url_for('login') }}">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+          <input type="hidden" name="next" value="{{ next }}" />
+          <div class="mb-3">
+            <label
+              for="username"
+              class="form-label fw-semibold"
+              style="color: var(--scdsb-dark)"
+              >Username</label
+            >
+            <input
+              type="text"
+              class="form-control"
+              id="username"
+              name="username"
+              autocomplete="username"
+              autofocus
+              required
+            />
+          </div>
+          <div class="mb-4">
+            <label
+              for="password"
+              class="form-label fw-semibold"
+              style="color: var(--scdsb-dark)"
+              >Password</label
+            >
+            <input
+              type="password"
+              class="form-control"
+              id="password"
+              name="password"
+              autocomplete="current-password"
+              required
+            />
+          </div>
+          <div class="d-grid">
+            <button type="submit" class="btn btn-login btn-lg">
+              <i class="bi bi-box-arrow-in-right me-2"></i>Sign In
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <footer class="text-center">
+      Grade Report Generator &middot; Simcoe County District School Board
+    </footer>
+
+    <script src="/static/vendor/bootstrap.bundle.min.js"></script>
+  </body>
+</html>

@@ -1,0 +1,216 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Profile &middot; Grade Report Generator</title>
+    <link href="/static/vendor/bootstrap.min.css" rel="stylesheet" />
+    <link href="/static/vendor/bootstrap-icons.min.css" rel="stylesheet" />
+    <meta name="csrf-token" content="{{ csrf_token() }}" />
+    <style>
+      :root {
+        --scdsb-dark: #003f5a;
+        --scdsb-mid: #00476c;
+        --scdsb-light: #b1d2e1;
+        --scdsb-pale: #dff0f6;
+      }
+      body {
+        background: #f0f4f8;
+        min-height: 100vh;
+        display: flex;
+        flex-direction: column;
+      }
+      .site-header {
+        background: var(--scdsb-dark);
+        border-bottom: 4px solid var(--scdsb-light);
+      }
+      main {
+        flex: 1;
+      }
+      .btn-save {
+        background: var(--scdsb-dark);
+        border-color: var(--scdsb-dark);
+        color: #fff;
+        font-weight: 600;
+      }
+      .btn-save:hover {
+        background: var(--scdsb-mid);
+        border-color: var(--scdsb-mid);
+        color: #fff;
+      }
+      .form-control:focus {
+        border-color: var(--scdsb-light);
+        box-shadow: 0 0 0 0.2rem rgba(177, 210, 225, 0.4);
+      }
+      .section-card {
+        background: #fff;
+        border-radius: 10px;
+        border: 1px solid #dde3ea;
+      }
+      footer {
+        color: #999;
+        font-size: 0.78rem;
+      }
+    </style>
+  </head>
+  <body>
+    <nav class="navbar site-header py-2">
+      <div class="container d-flex align-items-center gap-3">
+        <a
+          href="{{ url_for('index') }}"
+          class="d-flex align-items-center gap-2 text-decoration-none"
+        >
+          <i class="bi bi-mortarboard-fill fs-3 text-white opacity-75"></i>
+          <div>
+            <div
+              class="text-white fw-bold"
+              style="font-size: 1.25rem; line-height: 1.1"
+            >
+              Grade Report Generator
+            </div>
+            <div style="color: var(--scdsb-light); font-size: 0.8rem">
+              Simcoe County District School Board
+            </div>
+          </div>
+        </a>
+        <div class="ms-auto d-flex align-items-center gap-2">
+          <a href="{{ url_for('index') }}" class="btn btn-sm btn-outline-light">
+            <i class="bi bi-cloud-upload me-1"></i>Upload
+          </a>
+          {% if current_user.is_admin %}
+          <a
+            href="{{ url_for('admin_users') }}"
+            class="btn btn-sm btn-outline-light"
+          >
+            <i class="bi bi-people me-1"></i>Users
+          </a>
+          {% endif %}
+          <a
+            href="{{ url_for('profile') }}"
+            class="btn btn-sm btn-outline-light active"
+            aria-current="page"
+          >
+            <i class="bi bi-person-circle me-1"></i>{{ current_user.username }}
+          </a>
+          <a
+            href="{{ url_for('logout') }}"
+            class="btn btn-sm"
+            style="
+              background: var(--scdsb-light);
+              color: var(--scdsb-dark);
+              font-weight: 600;
+            "
+          >
+            <i class="bi bi-box-arrow-right me-1"></i>Logout
+          </a>
+        </div>
+      </div>
+    </nav>
+
+    <main class="container py-5" style="max-width: 600px">
+      <h2 class="fw-bold mb-1" style="color: var(--scdsb-dark)">
+        Profile Settings
+      </h2>
+      <p class="text-muted mb-4">
+        Changes take effect immediately and apply to all reports generated this
+        session.
+      </p>
+
+      {% with messages = get_flashed_messages() %} {% if messages %} {% for msg
+      in messages %}
+      <div
+        class="alert alert-info alert-dismissible fade show d-flex align-items-start gap-2"
+        role="alert"
+      >
+        <i class="bi bi-info-circle-fill mt-1 flex-shrink-0"></i>
+        <span>{{ msg }}</span>
+        <button
+          type="button"
+          class="btn-close ms-auto"
+          data-bs-dismiss="alert"
+        ></button>
+      </div>
+      {% endfor %} {% endif %} {% endwith %}
+
+      <form method="post" action="{{ url_for('profile') }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+        <!-- School name -->
+        <div class="section-card p-4 mb-4">
+          <h5 class="fw-bold mb-1" style="color: var(--scdsb-dark)">
+            <i class="bi bi-building me-2"></i>School Name
+          </h5>
+          <p class="text-muted small mb-3">
+            This name appears in the header and footer of every generated PDF
+            report.
+          </p>
+          <label
+            for="school"
+            class="form-label fw-semibold"
+            style="color: var(--scdsb-dark)"
+            >School</label
+          >
+          <input
+            type="text"
+            class="form-control"
+            id="school"
+            name="school"
+            value="{{ current_user.school }}"
+            maxlength="120"
+          />
+        </div>
+
+        <!-- Change password -->
+        <div class="section-card p-4 mb-4">
+          <h5 class="fw-bold mb-1" style="color: var(--scdsb-dark)">
+            <i class="bi bi-lock me-2"></i>Change Password
+          </h5>
+          <p class="text-muted small mb-3">
+            Leave blank to keep your current password. Minimum 8 characters.
+          </p>
+          <div class="mb-3">
+            <label
+              for="new_password"
+              class="form-label fw-semibold"
+              style="color: var(--scdsb-dark)"
+              >New Password</label
+            >
+            <input
+              type="password"
+              class="form-control"
+              id="new_password"
+              name="new_password"
+              autocomplete="new-password"
+            />
+          </div>
+          <div class="mb-0">
+            <label
+              for="confirm_password"
+              class="form-label fw-semibold"
+              style="color: var(--scdsb-dark)"
+              >Confirm Password</label
+            >
+            <input
+              type="password"
+              class="form-control"
+              id="confirm_password"
+              name="confirm_password"
+              autocomplete="new-password"
+            />
+          </div>
+        </div>
+
+        <div class="d-grid">
+          <button type="submit" class="btn btn-save btn-lg">
+            <i class="bi bi-floppy me-2"></i>Save Changes
+          </button>
+        </div>
+      </form>
+    </main>
+
+    <footer class="text-center py-3">
+      Grade Report Generator &middot; Simcoe County District School Board
+    </footer>
+
+    <script src="/static/vendor/bootstrap.bundle.min.js"></script>
+  </body>
+</html>

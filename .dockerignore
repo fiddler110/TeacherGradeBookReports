@@ -1,0 +1,25 @@
+# Development artifacts
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+dist/
+build/
+
+# Local data / generated outputs
+Grades.xlsx
+reports/
+.venv/
+venv/
+
+# Editor / OS
+.vscode/
+.idea/
+*.DS_Store
+Thumbs.db
+
+# Tests / docs
+*.md
+*.log

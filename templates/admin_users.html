@@ -1,0 +1,312 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Manage Users &middot; Grade Report Generator</title>
+    <link href="/static/vendor/bootstrap.min.css" rel="stylesheet" />
+    <link href="/static/vendor/bootstrap-icons.min.css" rel="stylesheet" />
+    <meta name="csrf-token" content="{{ csrf_token() }}" />
+    <style>
+      :root {
+        --scdsb-dark: #003f5a;
+        --scdsb-mid: #00476c;
+        --scdsb-light: #b1d2e1;
+        --scdsb-pale: #dff0f6;
+      }
+      body {
+        background: #f0f4f8;
+        min-height: 100vh;
+        display: flex;
+        flex-direction: column;
+      }
+      .site-header {
+        background: var(--scdsb-dark);
+        border-bottom: 4px solid var(--scdsb-light);
+      }
+      main {
+        flex: 1;
+      }
+      .section-card {
+        background: #fff;
+        border-radius: 10px;
+        border: 1px solid #dde3ea;
+      }
+      .btn-primary-scdsb {
+        background: var(--scdsb-dark);
+        border-color: var(--scdsb-dark);
+        color: #fff;
+        font-weight: 600;
+      }
+      .btn-primary-scdsb:hover {
+        background: var(--scdsb-mid);
+        border-color: var(--scdsb-mid);
+        color: #fff;
+      }
+      .form-control:focus,
+      .form-check-input:focus {
+        border-color: var(--scdsb-light);
+        box-shadow: 0 0 0 0.2rem rgba(177, 210, 225, 0.4);
+      }
+      .badge-admin {
+        background: var(--scdsb-pale);
+        color: var(--scdsb-dark);
+        border: 1px solid var(--scdsb-light);
+        font-size: 0.72rem;
+        font-weight: 600;
+        padding: 2px 7px;
+        border-radius: 20px;
+      }
+      footer {
+        color: #999;
+        font-size: 0.78rem;
+      }
+      th {
+        color: var(--scdsb-dark);
+        font-size: 0.8rem;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+      }
+    </style>
+  </head>
+  <body>
+    <!-- Navbar -->
+    <nav class="navbar site-header py-2">
+      <div class="container d-flex align-items-center gap-3">
+        <a
+          href="{{ url_for('index') }}"
+          class="d-flex align-items-center gap-2 text-decoration-none"
+        >
+          <i class="bi bi-mortarboard-fill fs-3 text-white opacity-75"></i>
+          <div>
+            <div
+              class="text-white fw-bold"
+              style="font-size: 1.25rem; line-height: 1.1"
+            >
+              Grade Report Generator
+            </div>
+            <div style="color: var(--scdsb-light); font-size: 0.8rem">
+              Simcoe County District School Board
+            </div>
+          </div>
+        </a>
+        <div class="ms-auto d-flex align-items-center gap-2">
+          <a href="{{ url_for('index') }}" class="btn btn-sm btn-outline-light">
+            <i class="bi bi-cloud-upload me-1"></i>Upload
+          </a>
+          <a
+            href="{{ url_for('admin_users') }}"
+            class="btn btn-sm btn-outline-light active"
+            aria-current="page"
+          >
+            <i class="bi bi-people me-1"></i>Users
+          </a>
+          <a
+            href="{{ url_for('profile') }}"
+            class="btn btn-sm btn-outline-light"
+          >
+            <i class="bi bi-person-circle me-1"></i>{{ current_user.username }}
+          </a>
+          <a
+            href="{{ url_for('logout') }}"
+            class="btn btn-sm"
+            style="
+              background: var(--scdsb-light);
+              color: var(--scdsb-dark);
+              font-weight: 600;
+            "
+          >
+            <i class="bi bi-box-arrow-right me-1"></i>Logout
+          </a>
+        </div>
+      </div>
+    </nav>
+
+    <main class="container py-5" style="max-width: 820px">
+      <h2 class="fw-bold mb-1" style="color: var(--scdsb-dark)">
+        Manage Users
+      </h2>
+      <p class="text-muted mb-4">
+        Add or remove user accounts. Admin users can access this page.
+      </p>
+
+      {% with messages = get_flashed_messages() %} {% if messages %} {% for msg
+      in messages %}
+      <div
+        class="alert alert-info alert-dismissible fade show d-flex align-items-start gap-2"
+        role="alert"
+      >
+        <i class="bi bi-info-circle-fill mt-1 flex-shrink-0"></i>
+        <span>{{ msg }}</span>
+        <button
+          type="button"
+          class="btn-close ms-auto"
+          data-bs-dismiss="alert"
+        ></button>
+      </div>
+      {% endfor %} {% endif %} {% endwith %}
+
+      <!-- Existing users table -->
+      <div class="section-card p-4 mb-4">
+        <h5 class="fw-bold mb-3" style="color: var(--scdsb-dark)">
+          <i class="bi bi-people me-2"></i>Current Users
+        </h5>
+        {% if users %}
+        <div class="table-responsive">
+          <table class="table table-hover align-middle mb-0">
+            <thead class="table-light">
+              <tr>
+                <th>Username</th>
+                <th>School</th>
+                <th>Role</th>
+                <th class="text-end">Action</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for u in users %}
+              <tr>
+                <td class="fw-semibold">
+                  {{ u.username }} {% if u.username == current_user.username %}
+                  <span class="text-muted ms-1" style="font-size: 0.78rem"
+                    >(you)</span
+                  >
+                  {% endif %}
+                </td>
+                <td class="text-muted">{{ u.school or '—' }}</td>
+                <td>
+                  {% if u.is_admin %}
+                  <span class="badge-admin"
+                    ><i class="bi bi-shield-check me-1"></i>Admin</span
+                  >
+                  {% else %}
+                  <span class="text-muted" style="font-size: 0.85rem"
+                    >User</span
+                  >
+                  {% endif %}
+                </td>
+                <td class="text-end">
+                  {% if u.username != current_user.username %}
+                  <form
+                    method="post"
+                    action="{{ url_for('admin_delete_user', username=u.username) }}"
+                    onsubmit="return confirm('Delete user {{ u.username }}? This cannot be undone.');"
+                    class="d-inline"
+                  >
+                    <input
+                      type="hidden"
+                      name="csrf_token"
+                      value="{{ csrf_token() }}"
+                    />
+                    <button type="submit" class="btn btn-sm btn-outline-danger">
+                      <i class="bi bi-trash3 me-1"></i>Delete
+                    </button>
+                  </form>
+                  {% else %}
+                  <span class="text-muted" style="font-size: 0.8rem">—</span>
+                  {% endif %}
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        {% else %}
+        <p class="text-muted mb-0">No users found.</p>
+        {% endif %}
+      </div>
+
+      <!-- Add user form -->
+      <div class="section-card p-4">
+        <h5 class="fw-bold mb-3" style="color: var(--scdsb-dark)">
+          <i class="bi bi-person-plus me-2"></i>Add New User
+        </h5>
+        <form method="post" action="{{ url_for('admin_add_user') }}">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+          <div class="row g-3">
+            <div class="col-sm-4">
+              <label
+                for="username"
+                class="form-label fw-semibold"
+                style="color: var(--scdsb-dark)"
+                >Username</label
+              >
+              <input
+                type="text"
+                class="form-control"
+                id="username"
+                name="username"
+                autocomplete="off"
+                required
+                maxlength="64"
+              />
+            </div>
+            <div class="col-sm-4">
+              <label
+                for="password"
+                class="form-label fw-semibold"
+                style="color: var(--scdsb-dark)"
+                >Password</label
+              >
+              <input
+                type="password"
+                class="form-control"
+                id="password"
+                name="password"
+                autocomplete="new-password"
+                required
+                minlength="8"
+              />
+              <div class="form-text">Minimum 8 characters.</div>
+            </div>
+            <div class="col-sm-4">
+              <label
+                for="school"
+                class="form-label fw-semibold"
+                style="color: var(--scdsb-dark)"
+                >School</label
+              >
+              <input
+                type="text"
+                class="form-control"
+                id="school"
+                name="school"
+                maxlength="120"
+                placeholder="Optional"
+              />
+            </div>
+            <div class="col-12">
+              <div class="form-check">
+                <input
+                  class="form-check-input"
+                  type="checkbox"
+                  id="is_admin"
+                  name="is_admin"
+                  value="1"
+                />
+                <label
+                  class="form-check-label fw-semibold"
+                  for="is_admin"
+                  style="color: var(--scdsb-dark)"
+                >
+                  Grant admin privileges
+                  <span class="text-muted fw-normal">(can manage users)</span>
+                </label>
+              </div>
+            </div>
+            <div class="col-12">
+              <button type="submit" class="btn btn-primary-scdsb">
+                <i class="bi bi-person-plus me-2"></i>Create User
+              </button>
+            </div>
+          </div>
+        </form>
+      </div>
+    </main>
+
+    <footer class="text-center py-3">
+      Grade Report Generator &middot; Simcoe County District School Board
+    </footer>
+
+    <script src="/static/vendor/bootstrap.bundle.min.js"></script>
+  </body>
+</html>

@@ -1,0 +1,8 @@
+flask>=3.0
+flask-login>=0.6
+flask-wtf>=1.2
+flask-limiter>=3.5
+openpyxl>=3.1
+reportlab>=4.0
+pillow>=10.0
+gunicorn>=21.0

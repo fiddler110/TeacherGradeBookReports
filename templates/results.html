@@ -1,0 +1,258 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Generated Reports &middot; Grade Report Generator</title>
+    <link href="/static/vendor/bootstrap.min.css" rel="stylesheet" />
+    <link href="/static/vendor/bootstrap-icons.min.css" rel="stylesheet" />
+    <meta name="csrf-token" content="{{ csrf_token() }}" />
+    <style>
+      :root {
+        --scdsb-dark: #003f5a;
+        --scdsb-mid: #00476c;
+        --scdsb-light: #b1d2e1;
+        --scdsb-pale: #dff0f6;
+      }
+      body {
+        background: #f0f4f8;
+        min-height: 100vh;
+        display: flex;
+        flex-direction: column;
+      }
+      .site-header {
+        background: var(--scdsb-dark);
+        border-bottom: 4px solid var(--scdsb-light);
+      }
+      .site-header h1 {
+        color: #fff;
+        font-size: 1.35rem;
+        font-weight: 700;
+        margin: 0;
+      }
+      .site-header p {
+        color: var(--scdsb-light);
+        font-size: 0.82rem;
+        margin: 0;
+      }
+
+      main {
+        flex: 1;
+      }
+
+      /* Report cards */
+      .report-card {
+        background: #fff;
+        border: 1px solid #dde3ea;
+        border-left: 5px solid var(--scdsb-mid);
+        border-radius: 8px;
+        transition: box-shadow 0.15s;
+      }
+      .report-card:hover {
+        box-shadow: 0 4px 16px rgba(0, 63, 90, 0.12);
+      }
+
+      .student-avatar {
+        width: 46px;
+        height: 46px;
+        background: var(--scdsb-pale);
+        color: var(--scdsb-dark);
+        border: 2px solid var(--scdsb-light);
+        border-radius: 50%;
+        font-weight: 700;
+        font-size: 1.1rem;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+      }
+
+      /* Buttons */
+      .btn-view {
+        background: var(--scdsb-pale);
+        border: 1px solid var(--scdsb-light);
+        color: var(--scdsb-dark);
+        font-weight: 500;
+      }
+      .btn-view:hover {
+        background: var(--scdsb-light);
+        border-color: var(--scdsb-mid);
+        color: var(--scdsb-dark);
+      }
+      .btn-dl {
+        background: var(--scdsb-dark);
+        border-color: var(--scdsb-dark);
+        color: #fff;
+        font-weight: 500;
+      }
+      .btn-dl:hover {
+        background: var(--scdsb-mid);
+        border-color: var(--scdsb-mid);
+        color: #fff;
+      }
+      .btn-dl-all {
+        background: var(--scdsb-mid);
+        border-color: var(--scdsb-mid);
+        color: #fff;
+        font-weight: 600;
+      }
+      .btn-dl-all:hover {
+        background: var(--scdsb-dark);
+        border-color: var(--scdsb-dark);
+        color: #fff;
+      }
+      .btn-back {
+        color: var(--scdsb-dark);
+        border-color: var(--scdsb-light);
+        background: #fff;
+      }
+      .btn-back:hover {
+        background: var(--scdsb-pale);
+        border-color: var(--scdsb-mid);
+        color: var(--scdsb-dark);
+      }
+
+      .success-badge {
+        background: #eaf6ed;
+        border: 1px solid #a8d5b0;
+        border-radius: 8px;
+      }
+
+      footer {
+        color: #999;
+        font-size: 0.78rem;
+      }
+    </style>
+  </head>
+  <body>
+    <nav class="navbar site-header py-2">
+      <div class="container d-flex align-items-center gap-3">
+        <a
+          href="{{ url_for('index') }}"
+          class="d-flex align-items-center gap-2 text-decoration-none"
+        >
+          <i class="bi bi-mortarboard-fill fs-3 text-white opacity-75"></i>
+          <div>
+            <div
+              class="text-white fw-bold"
+              style="font-size: 1.25rem; line-height: 1.1"
+            >
+              Grade Report Generator
+            </div>
+            <div style="color: var(--scdsb-light); font-size: 0.8rem">
+              Simcoe County District School Board
+            </div>
+          </div>
+        </a>
+        <div class="ms-auto d-flex align-items-center gap-2">
+          <a href="{{ url_for('index') }}" class="btn btn-sm btn-outline-light">
+            <i class="bi bi-cloud-upload me-1"></i>Upload
+          </a>
+          {% if current_user.is_admin %}
+          <a
+            href="{{ url_for('admin_users') }}"
+            class="btn btn-sm btn-outline-light"
+          >
+            <i class="bi bi-people me-1"></i>Users
+          </a>
+          {% endif %}
+          <a
+            href="{{ url_for('profile') }}"
+            class="btn btn-sm btn-outline-light"
+          >
+            <i class="bi bi-person-circle me-1"></i>{{ current_user.username }}
+          </a>
+          <a
+            href="{{ url_for('logout') }}"
+            class="btn btn-sm"
+            style="
+              background: var(--scdsb-light);
+              color: var(--scdsb-dark);
+              font-weight: 600;
+            "
+          >
+            <i class="bi bi-box-arrow-right me-1"></i>Logout
+          </a>
+        </div>
+      </div>
+    </nav>
+
+    <main class="container py-4" style="max-width: 780px">
+      <!-- Success summary bar -->
+      <div
+        class="success-badge px-4 py-3 mb-4 d-flex align-items-center justify-content-between flex-wrap gap-3"
+      >
+        <div class="d-flex align-items-center gap-2">
+          <i class="bi bi-check-circle-fill fs-5" style="color: #1a7340"></i>
+          <div>
+            <span class="fw-bold" style="color: var(--scdsb-dark)">
+              {{ reports|length }} report{{ 's' if reports|length != 1 }}
+              generated successfully
+            </span>
+            <div class="text-muted small">
+              Click <strong>View</strong> to open a PDF in your browser, or
+              <strong>Download</strong> to save it.
+            </div>
+          </div>
+        </div>
+        <div class="d-flex gap-2 flex-shrink-0">
+          <a href="{{ url_for('index') }}" class="btn btn-back btn-sm">
+            <i class="bi bi-arrow-left me-1"></i>Upload New File
+          </a>
+          <a
+            href="{{ url_for('download_all', uid=uid) }}"
+            class="btn btn-dl-all btn-sm"
+          >
+            <i class="bi bi-file-zip me-1"></i>Download All (.zip)
+          </a>
+        </div>
+      </div>
+
+      <!-- Report list -->
+      <div class="d-flex flex-column gap-3">
+        {% for report in reports %}
+        <div class="report-card p-3 d-flex align-items-center gap-3">
+          <div class="student-avatar">{{ report.name[0].upper() }}</div>
+
+          <div class="flex-grow-1" style="min-width: 0">
+            <div
+              class="fw-semibold"
+              style="color: var(--scdsb-dark); font-size: 1rem"
+            >
+              {{ report.name }}
+            </div>
+            <div class="text-muted small">
+              <i class="bi bi-person-badge me-1"></i>Student ID: {{
+              report.student_id }}
+            </div>
+          </div>
+
+          <div class="d-flex gap-2 flex-shrink-0">
+            <a
+              href="{{ url_for('view_report', uid=uid, filename=report.filename) }}"
+              target="_blank"
+              class="btn btn-view btn-sm"
+              title="Open {{ report.name }}'s report in a new tab"
+            >
+              <i class="bi bi-eye me-1"></i>View
+            </a>
+            <a
+              href="{{ url_for('download_report', uid=uid, filename=report.filename) }}"
+              class="btn btn-dl btn-sm"
+              title="Download {{ report.name }}'s report"
+            >
+              <i class="bi bi-download me-1"></i>Download
+            </a>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+    </main>
+
+    <footer class="text-center py-3">
+      Grade Report Generator &middot; Simcoe County District School Board
+    </footer>
+
+    <script src="/static/vendor/bootstrap.bundle.min.js"></script>
+  </body>
+</html>

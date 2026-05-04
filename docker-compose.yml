@@ -1,0 +1,24 @@
+services:
+  app:
+    build: .
+    container_name: grade-reports
+    ports:
+      - "8000:8000"
+    volumes:
+      - grade-reports-data:/data
+    environment:
+      # Override these to set the initial admin account.
+      # The admin is only created once (on first boot when the DB is empty).
+      ADMIN_USERNAME: ${ADMIN_USERNAME:-admin}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-changeme}
+      ADMIN_SCHOOL:   ${ADMIN_SCHOOL:-Westfield Academy}
+      # Set a stable secret key so sessions survive container restarts.
+      SECRET_KEY:     ${SECRET_KEY:-change-me-in-production}
+      # Increase for higher concurrency.
+      GUNICORN_WORKERS: ${GUNICORN_WORKERS:-2}
+      # Set to false when running over plain HTTP (e.g. local dev).
+      COOKIE_SECURE: ${COOKIE_SECURE:-true}
+    restart: unless-stopped
+
+volumes:
+  grade-reports-data:

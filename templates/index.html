@@ -1,0 +1,282 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Grade Report Generator</title>
+    <link href="/static/vendor/bootstrap.min.css" rel="stylesheet" />
+    <link href="/static/vendor/bootstrap-icons.min.css" rel="stylesheet" />
+    <meta name="csrf-token" content="{{ csrf_token() }}" />
+    <style>
+      :root {
+        --scdsb-dark: #003f5a;
+        --scdsb-mid: #00476c;
+        --scdsb-light: #b1d2e1;
+        --scdsb-pale: #dff0f6;
+      }
+      body {
+        background: #f0f4f8;
+        min-height: 100vh;
+        display: flex;
+        flex-direction: column;
+      }
+      .site-header {
+        background: var(--scdsb-dark);
+        border-bottom: 4px solid var(--scdsb-light);
+      }
+      .site-header h1 {
+        color: #fff;
+        font-size: 1.35rem;
+        font-weight: 700;
+        margin: 0;
+      }
+      .site-header p {
+        color: var(--scdsb-light);
+        font-size: 0.82rem;
+        margin: 0;
+      }
+
+      main {
+        flex: 1;
+      }
+
+      .upload-card {
+        border: 2px dashed var(--scdsb-light);
+        border-radius: 12px;
+        background: #fff;
+        cursor: pointer;
+        transition:
+          border-color 0.2s,
+          background 0.2s;
+        user-select: none;
+      }
+      .upload-card.dragover {
+        border-color: var(--scdsb-dark);
+        background: var(--scdsb-pale);
+      }
+      .upload-icon {
+        font-size: 3.2rem;
+        color: var(--scdsb-mid);
+      }
+      .file-label-text {
+        font-size: 0.85rem;
+      }
+
+      .btn-generate {
+        background: var(--scdsb-dark);
+        border-color: var(--scdsb-dark);
+        color: #fff;
+        font-weight: 600;
+      }
+      .btn-generate:hover:not(:disabled) {
+        background: var(--scdsb-mid);
+        border-color: var(--scdsb-mid);
+        color: #fff;
+      }
+      .btn-generate:disabled {
+        opacity: 0.55;
+      }
+
+      .info-box {
+        background: var(--scdsb-pale);
+        border-left: 4px solid var(--scdsb-mid);
+        border-radius: 6px;
+      }
+      .info-box strong {
+        color: var(--scdsb-dark);
+      }
+
+      footer {
+        color: #999;
+        font-size: 0.78rem;
+      }
+    </style>
+  </head>
+  <body>
+    <nav class="navbar site-header py-2">
+      <div class="container d-flex align-items-center gap-3">
+        <a
+          href="{{ url_for('index') }}"
+          class="d-flex align-items-center gap-2 text-decoration-none"
+        >
+          <i class="bi bi-mortarboard-fill fs-3 text-white opacity-75"></i>
+          <div>
+            <div
+              class="text-white fw-bold"
+              style="font-size: 1.25rem; line-height: 1.1"
+            >
+              Grade Report Generator
+            </div>
+            <div style="color: var(--scdsb-light); font-size: 0.8rem">
+              Simcoe County District School Board
+            </div>
+          </div>
+        </a>
+        <div class="ms-auto d-flex align-items-center gap-2">
+          {% if current_user.is_admin %}
+          <a
+            href="{{ url_for('admin_users') }}"
+            class="btn btn-sm btn-outline-light"
+          >
+            <i class="bi bi-people me-1"></i>Users
+          </a>
+          {% endif %}
+          <a
+            href="{{ url_for('profile') }}"
+            class="btn btn-sm btn-outline-light"
+          >
+            <i class="bi bi-person-circle me-1"></i>{{ current_user.username }}
+          </a>
+          <a
+            href="{{ url_for('logout') }}"
+            class="btn btn-sm"
+            style="
+              background: var(--scdsb-light);
+              color: var(--scdsb-dark);
+              font-weight: 600;
+            "
+          >
+            <i class="bi bi-box-arrow-right me-1"></i>Logout
+          </a>
+        </div>
+      </div>
+    </nav>
+
+    <main class="container py-5" style="max-width: 660px">
+      {% with messages = get_flashed_messages() %} {% if messages %} {% for msg
+      in messages %}
+      <div
+        class="alert alert-warning alert-dismissible fade show d-flex align-items-start gap-2"
+        role="alert"
+      >
+        <i class="bi bi-exclamation-triangle-fill mt-1 flex-shrink-0"></i>
+        <span>{{ msg }}</span>
+        <button
+          type="button"
+          class="btn-close ms-auto"
+          data-bs-dismiss="alert"
+        ></button>
+      </div>
+      {% endfor %} {% endif %} {% endwith %}
+
+      <div class="text-center mb-4">
+        <h2 class="fw-bold mb-1" style="color: var(--scdsb-dark)">
+          Upload Grade Sheet
+        </h2>
+        <p class="text-muted mb-0">
+          Upload an Excel file to instantly generate a professional PDF report
+          for each student.
+        </p>
+      </div>
+
+      <form
+        action="/upload"
+        method="post"
+        enctype="multipart/form-data"
+        id="upload-form"
+      >
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+        <div class="upload-card p-5 text-center mb-3" id="drop-zone">
+          <div class="upload-icon mb-2">
+            <i class="bi bi-file-earmark-spreadsheet"></i>
+          </div>
+          <p class="fw-semibold mb-1" style="color: var(--scdsb-dark)">
+            Drag &amp; drop your file here
+          </p>
+          <p class="text-muted small mb-3">or click to browse your computer</p>
+          <input
+            type="file"
+            name="gradefile"
+            id="gradefile"
+            accept=".xlsx,.xls"
+            class="d-none"
+            required
+          />
+          <div id="file-label" class="file-label-text text-muted">
+            <i class="bi bi-paperclip me-1"></i>No file selected
+          </div>
+        </div>
+
+        <div class="d-grid mb-3">
+          <button
+            type="submit"
+            class="btn btn-generate btn-lg"
+            id="submit-btn"
+            disabled
+          >
+            <i class="bi bi-lightning-charge-fill me-2"></i>Generate Reports
+          </button>
+        </div>
+      </form>
+
+      <div class="info-box p-3 small">
+        <strong>Expected spreadsheet format</strong>
+        <ul class="mb-0 mt-2 ps-3 text-muted">
+          <li>Column A &ndash; Student ID</li>
+          <li>Column B &ndash; Last Name</li>
+          <li>Column C &ndash; First Name</li>
+          <li>Column D &ndash; (unused / leave blank)</li>
+          <li>
+            Columns E+ &ndash; Assignments, with scores as decimals
+            <em>(e.g. 0.85 = 85%)</em>
+          </li>
+          <li>
+            Assignment names use a numeric prefix to group into modules &mdash;
+            e.g. <em>1.1 Discussion</em>, <em>1.2 Poster</em>, <em>2.1 Quiz</em>
+          </li>
+        </ul>
+      </div>
+    </main>
+
+    <footer class="text-center py-3">
+      Grade Report Generator &middot; Simcoe County District School Board
+    </footer>
+
+    <script src="/static/vendor/bootstrap.bundle.min.js"></script>
+    <script>
+      const input = document.getElementById("gradefile");
+      const label = document.getElementById("file-label");
+      const submitBtn = document.getElementById("submit-btn");
+      const dropZone = document.getElementById("drop-zone");
+
+      function applyFile(file) {
+        label.innerHTML = `<i class="bi bi-file-earmark-check me-1" style="color:var(--scdsb-dark)"></i>
+                       <span style="color:var(--scdsb-dark);font-weight:600">${file.name}</span>`;
+        submitBtn.disabled = false;
+      }
+
+      // Click anywhere in the drop zone to open the file picker
+      dropZone.addEventListener("click", () => input.click());
+
+      input.addEventListener("change", () => {
+        if (input.files.length) applyFile(input.files[0]);
+      });
+
+      dropZone.addEventListener("dragover", (e) => {
+        e.preventDefault();
+        dropZone.classList.add("dragover");
+      });
+      dropZone.addEventListener("dragleave", () =>
+        dropZone.classList.remove("dragover"),
+      );
+      dropZone.addEventListener("drop", (e) => {
+        e.preventDefault();
+        dropZone.classList.remove("dragover");
+        const files = e.dataTransfer.files;
+        if (!files.length) return;
+        // Assign the dropped file to the input via DataTransfer
+        const dt = new DataTransfer();
+        dt.items.add(files[0]);
+        input.files = dt.files;
+        applyFile(files[0]);
+      });
+
+      // Show spinner while generating
+      document.getElementById("upload-form").addEventListener("submit", () => {
+        submitBtn.disabled = true;
+        submitBtn.innerHTML =
+          '<span class="spinner-border spinner-border-sm me-2" role="status"></span>Generating Reports…';
+      });
+    </script>
+  </body>
+</html>
