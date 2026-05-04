@@ -42,35 +42,41 @@ BLACK = colors.HexColor("#1A1A1A")
 
 
 def letter_grade(pct: float) -> str:
-    if pct >= 0.90:
+    if pct >= 0.95:
         return "A+"
-    if pct >= 0.85:
+    if pct >= 0.87:
         return "A"
     if pct >= 0.80:
         return "A−"
-    if pct >= 0.75:
+    if pct >= 0.77:
         return "B+"
-    if pct >= 0.70:
+    if pct >= 0.73:
         return "B"
-    if pct >= 0.65:
+    if pct >= 0.70:
         return "B−"
-    if pct >= 0.60:
+    if pct >= 0.67:
         return "C+"
-    if pct >= 0.55:
+    if pct >= 0.63:
         return "C"
-    if pct >= 0.50:
+    if pct >= 0.60:
         return "C−"
-    if pct >= 0.45:
+    if pct >= 0.57:
+        return "D+"
+    if pct >= 0.53:
         return "D"
+    if pct >= 0.50:
+        return "D−"
     return "F"
 
 
 def grade_color(pct: float) -> colors.Color:
-    if pct >= 0.80:
-        return colors.HexColor("#1A7340")   # green
-    if pct >= 0.65:
-        return colors.HexColor("#7B5D00")   # amber/dark-gold
-    return colors.HexColor("#B22222")                    # red
+    if pct >= 0.70:
+        return colors.HexColor("#1A7340")   # green  – B− to A+
+    if pct >= 0.60:
+        return colors.HexColor("#B8860B")   # yellow – C range
+    if pct >= 0.50:
+        return colors.HexColor("#C85A00")   # orange – D range
+    return colors.HexColor("#B22222")       # red    – F
 
 
 # ── Module-level paragraph styles (#10) ──────────────────────────────────────
@@ -212,7 +218,8 @@ def pct_bar_table(pct: float, bar_width: float = 1.1 * inch) -> Table:
 
 
 # ── Main builder ──────────────────────────────────────────────────────────────
-def build_student_report(student: dict, output_path: str, school_name: str = SCHOOL_NAME):
+def build_student_report(student: dict, output_path: str, school_name: str = SCHOOL_NAME,
+                         teacher_name: str = "", teacher_email: str = ""):
     """
     student = {
         'id': ...,
@@ -259,11 +266,10 @@ def build_student_report(student: dict, output_path: str, school_name: str = SCH
     story.append(Spacer(1, 6))
     meta_table = Table(
         [[
-            Paragraph(f"Student ID: <b>{student['id']}</b>", style_meta),
             Paragraph(f"Report Date: <b>{date.today().strftime('%B %d, %Y')}</b>",
                       _STYLE_META_R),
         ]],
-        colWidths=[content_width * 0.65, content_width * 0.35],
+        colWidths=[content_width],
         hAlign="LEFT",
     )
     meta_table.setStyle(TableStyle([
@@ -345,11 +351,11 @@ def build_student_report(student: dict, output_path: str, school_name: str = SCH
 
     # ── Grade scale legend ───────────────────────────────────────────────────
     scale_items = [
-        ("A+/A/A−", "90–100%", colors.HexColor("#1A7340")),
-        ("B+/B/B−", "75–89%",  colors.HexColor("#1A7340")),
-        ("C+/C/C−", "55–74%",  colors.HexColor("#7B5D00")),
-        ("D",        "45–54%",  colors.HexColor("#B22222")),
-        ("F",        "< 45%",   colors.HexColor("#B22222")),
+        ("A+/A/A−",  "80–100%", colors.HexColor("#1A7340")),
+        ("B+/B/B−",  "70–79%",  colors.HexColor("#1A7340")),
+        ("C+/C/C−",  "60–69%",  colors.HexColor("#B8860B")),
+        ("D+/D/D−",  "50–59%",  colors.HexColor("#C85A00")),
+        ("F",         "< 50%",   colors.HexColor("#B22222")),
     ]
     scale_cells = []
     for lg, rng, col in scale_items:
@@ -452,7 +458,8 @@ def build_student_report(student: dict, output_path: str, school_name: str = SCH
                 bar = pct_bar_table(score, bar_width=col_widths[3] - 16)
             else:
                 val_para = Paragraph("—",   _STYLE_ROW_VAL)
-                grade_para = Paragraph("N/A", _STYLE_ROW_VAL)
+                grade_para = Paragraph(
+                    '<font size="6.5">Not Submitted</font>', _STYLE_ROW_VAL)
                 bar = Paragraph("",    _STYLE_ROW_VAL)
 
             table_rows.append([
@@ -505,9 +512,21 @@ def build_student_report(student: dict, output_path: str, school_name: str = SCH
     # ── Closing note ─────────────────────────────────────────────────────────
     story.append(HRFlowable(width="100%", thickness=1,
                             color=LIGHT_BG, spaceBefore=4, spaceAfter=4))
+    if teacher_name and teacher_email:
+        contact = (
+            f"Please contact {full_name}'s teacher {teacher_name} "
+            f"at {teacher_email} if you have any questions or concerns."
+        )
+    elif teacher_name:
+        contact = (
+            f"Please contact {full_name}'s teacher {teacher_name} "
+            f"if you have any questions or concerns."
+        )
+    else:
+        contact = f"Please contact {full_name}'s teacher if you have any questions."
     story.append(Paragraph(
         "This report is generated automatically from official school records. "
-        "Please contact the school office if you have any questions or concerns.",
+        + contact,
         style_note,
     ))
 
@@ -587,7 +606,7 @@ def main():
 
     for student in students:
         filename = (
-            f"{student['last']}_{student['first']}_{student['id']}.pdf"
+            f"{student['last']}_{student['first']}.pdf"
             .replace(" ", "_")
         )
         out_path = os.path.join(output_dir, filename)

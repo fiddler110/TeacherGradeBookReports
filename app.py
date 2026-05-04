@@ -137,9 +137,20 @@ def _init_db() -> None:
                 username      TEXT PRIMARY KEY,
                 password_hash TEXT NOT NULL,
                 school        TEXT NOT NULL DEFAULT '',
+                full_name     TEXT NOT NULL DEFAULT '',
+                email         TEXT NOT NULL DEFAULT '',
                 is_admin      INTEGER NOT NULL DEFAULT 0
             )
         """)
+        # Migrate: add columns introduced in later versions
+        for col, defn in [
+            ("full_name", "TEXT NOT NULL DEFAULT ''"),
+            ("email",     "TEXT NOT NULL DEFAULT ''"),
+        ]:
+            try:
+                db.execute(f"ALTER TABLE users ADD COLUMN {col} {defn}")
+            except sqlite3.OperationalError:
+                pass  # column already exists
         db.execute("""
             CREATE TABLE IF NOT EXISTS sessions (
                 uid        TEXT PRIMARY KEY,
@@ -177,17 +188,21 @@ login_manager.login_message = "Please log in to access this page."
 
 
 class User(UserMixin):
-    def __init__(self, username: str, password_hash: str, school: str, is_admin: bool):
+    def __init__(self, username: str, password_hash: str, school: str,
+                 full_name: str, email: str, is_admin: bool):
         self.id = username
         self.username = username
         self.password_hash = password_hash
         self.school = school
+        self.full_name = full_name
+        self.email = email
         self.is_admin = is_admin
 
     @classmethod
     def from_row(cls, row) -> "User":
         return cls(row["username"], row["password_hash"],
-                   row["school"], bool(row["is_admin"]))
+                   row["school"], row["full_name"], row["email"],
+                   bool(row["is_admin"]))
 
 
 def _db_get_user(username: str) -> "User | None":
@@ -320,6 +335,8 @@ def logout():
 def profile():
     if request.method == "POST":
         school = request.form.get("school", "").strip()
+        full_name = request.form.get("full_name", "").strip()
+        email = request.form.get("email", "").strip()
         new_password = request.form.get("new_password", "").strip()
         confirm = request.form.get("confirm_password", "").strip()
 
@@ -333,6 +350,25 @@ def profile():
             )
             current_user.school = school
             updates.append(f'School updated to "{school}"')
+
+        if full_name != current_user.full_name:
+            get_db().execute(
+                "UPDATE users SET full_name = ? WHERE username = ?",
+                (full_name, current_user.username),
+            )
+            current_user.full_name = full_name
+            updates.append("Full name updated.")
+
+        if email != current_user.email:
+            if email and not re.match(r'^[^@\s]+@[^@\s]+\.[^@\s]+$', email):
+                errors.append("Please enter a valid school email address.")
+            else:
+                get_db().execute(
+                    "UPDATE users SET email = ? WHERE username = ?",
+                    (email, current_user.username),
+                )
+                current_user.email = email
+                updates.append("Email updated.")
 
         if new_password or confirm:
             if new_password != confirm:
@@ -481,23 +517,27 @@ def upload():
     reports_dir.mkdir(exist_ok=True)
 
     school_name = current_user.school
+    teacher_name = current_user.full_name
+    teacher_email = current_user.email
 
     # Build a (student, out_path) list; sanitise filenames (#8)
     tasks = []
     for student in students:
         raw = (
-            f"{student['last']}_{student['first']}_{student['id']}.pdf"
+            f"{student['last']}_{student['first']}.pdf"
             .replace(" ", "_")
         )
         filename = _safe_filename(raw)
-        tasks.append((student, str(reports_dir / filename), school_name))
+        tasks.append((student, str(reports_dir / filename), school_name,
+                      teacher_name, teacher_email))
 
     # Generate PDFs in parallel (#9)
     errors = []
 
     def _gen(args):
-        student, out_path, sname = args
-        build_student_report(student, out_path, school_name=sname)
+        student, out_path, sname, tname, temail = args
+        build_student_report(student, out_path, school_name=sname,
+                             teacher_name=tname, teacher_email=temail)
         return student
 
     with ThreadPoolExecutor() as executor:
@@ -535,17 +575,14 @@ def results(uid: str):
     rpts = []
     for pdf in sorted(reports_dir.glob("*.pdf")):
         stem = pdf.stem
-        parts = stem.split("_", 2)
-        if len(parts) == 3:
+        parts = stem.split("_", 1)
+        if len(parts) == 2:
             display_name = f"{parts[1]} {parts[0]}"
-            student_id = parts[2]
         else:
             display_name = stem
-            student_id = ""
         rpts.append({
-            "filename":   pdf.name,
-            "name":       display_name,
-            "student_id": student_id,
+            "filename": pdf.name,
+            "name":     display_name,
         })
 
     if not rpts:

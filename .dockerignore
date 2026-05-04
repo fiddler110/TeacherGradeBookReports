@@ -14,12 +14,21 @@ reports/
 .venv/
 venv/
 
+# Environment / secrets
+.env
+.env.*
+*.env
+
+# Tests / smoke scripts
+smoke_test.*
+entrypoint.sh
+
 # Editor / OS
 .vscode/
 .idea/
 *.DS_Store
 Thumbs.db
 
-# Tests / docs
+# Docs / logs
 *.md
 *.log

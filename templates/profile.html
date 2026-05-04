@@ -134,6 +134,52 @@
 
       <form method="post" action="{{ url_for('profile') }}">
         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+
+        <!-- Teacher information -->
+        <div class="section-card p-4 mb-4">
+          <h5 class="fw-bold mb-1" style="color: var(--scdsb-dark)">
+            <i class="bi bi-person-badge me-2"></i>Teacher Information
+          </h5>
+          <p class="text-muted small mb-3">
+            Your name and email will appear in the contact line at the bottom of
+            every generated PDF report.
+          </p>
+          <div class="mb-3">
+            <label
+              for="full_name"
+              class="form-label fw-semibold"
+              style="color: var(--scdsb-dark)"
+              >Full Name</label
+            >
+            <input
+              type="text"
+              class="form-control"
+              id="full_name"
+              name="full_name"
+              value="{{ current_user.full_name }}"
+              maxlength="120"
+              placeholder="e.g. Jane Smith"
+            />
+          </div>
+          <div class="mb-0">
+            <label
+              for="email"
+              class="form-label fw-semibold"
+              style="color: var(--scdsb-dark)"
+              >School Email</label
+            >
+            <input
+              type="email"
+              class="form-control"
+              id="email"
+              name="email"
+              value="{{ current_user.email }}"
+              maxlength="254"
+              placeholder="e.g. jsmith@school.edu"
+            />
+          </div>
+        </div>
+
         <!-- School name -->
         <div class="section-card p-4 mb-4">
           <h5 class="fw-bold mb-1" style="color: var(--scdsb-dark)">
