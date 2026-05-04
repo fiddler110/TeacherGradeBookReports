@@ -629,19 +629,28 @@ def results(uid: str):
 
 def _validated_report_pdf_path(uid: str, filename: str) -> tuple[Path, str]:
     safe_name = Path(filename).name   # strip directory components
+    if safe_name != filename:
+        abort(400)
     if _SAFE_FILENAME_RE.search(safe_name):
         abort(400)
 
     reports_dir = _session_dir(uid) / "reports"
     reports_dir_resolved = reports_dir.resolve()
-    pdf_path_resolved = (reports_dir / safe_name).resolve()
 
-    if not pdf_path_resolved.is_relative_to(reports_dir_resolved):
+    matched_pdf: Path | None = None
+    for pdf in reports_dir.glob("*.pdf"):
+        if pdf.name == safe_name:
+            matched_pdf = pdf.resolve()
+            break
+
+    if matched_pdf is None:
+        abort(404)
+    if not matched_pdf.is_relative_to(reports_dir_resolved):
         abort(400)
-    if not pdf_path_resolved.is_file() or pdf_path_resolved.suffix.lower() != ".pdf":
+    if not matched_pdf.is_file() or matched_pdf.suffix.lower() != ".pdf":
         abort(404)
 
-    return pdf_path_resolved, safe_name
+    return matched_pdf, safe_name
 
 
 @app.route("/view/<uid>/<path:filename>")
