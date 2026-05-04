@@ -444,6 +444,7 @@ def build_student_report(student: dict, output_path: str, school_name: str = SCH
         for i, (asgn_name, score) in enumerate(assignments):
             row_idx = i + 1
             bg = LIGHT_BG_PALE if row_idx % 2 == 0 else WHITE
+            is_not_submitted = False
 
             if score is not None and score > 0.0:
                 pct_str = f"{score * 100:.1f}%"
@@ -457,10 +458,11 @@ def build_student_report(student: dict, output_path: str, school_name: str = SCH
                 )
                 bar = pct_bar_table(score, bar_width=col_widths[3] - 16)
             else:
-                val_para = Paragraph("—",   _STYLE_ROW_VAL)
-                grade_para = Paragraph(
-                    '<font size="6.5">Not Submitted</font>', _STYLE_ROW_VAL)
+                val_para = Paragraph(
+                    '<font size="7">Not Submitted</font>', _STYLE_ROW_VAL)
+                grade_para = Paragraph("", _STYLE_ROW_VAL)
                 bar = Paragraph("",    _STYLE_ROW_VAL)
+                is_not_submitted = True
 
             table_rows.append([
                 Paragraph(asgn_name, _STYLE_ROW_NAME),
@@ -477,6 +479,8 @@ def build_student_report(student: dict, output_path: str, school_name: str = SCH
                 ("RIGHTPADDING", (0, row_idx), (-1, row_idx), 5),
                 ("VALIGN",       (0, row_idx), (-1, row_idx), "MIDDLE"),
             ]
+            if is_not_submitted:
+                row_styles.append(("SPAN", (1, row_idx), (2, row_idx)))
 
         # Module average footer row
         table_rows.append([
