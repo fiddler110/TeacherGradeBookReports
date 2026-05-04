@@ -627,26 +627,31 @@ def results(uid: str):
     return render_template("results.html", uid=uid, reports=rpts)
 
 
+def _validated_report_pdf_path(uid: str, filename: str) -> tuple[Path, str]:
+    safe_name = Path(filename).name   # strip directory components
+    if _SAFE_FILENAME_RE.search(safe_name):
+        abort(400)
+
+    reports_dir = _session_dir(uid) / "reports"
+    reports_dir_resolved = reports_dir.resolve()
+    pdf_path_resolved = (reports_dir / safe_name).resolve()
+
+    if not pdf_path_resolved.is_relative_to(reports_dir_resolved):
+        abort(400)
+    if not pdf_path_resolved.is_file() or pdf_path_resolved.suffix.lower() != ".pdf":
+        abort(404)
+
+    return pdf_path_resolved, safe_name
+
+
 @app.route("/view/<uid>/<path:filename>")
 @login_required
 def view_report(uid: str, filename: str):
     uid = _safe_uid(uid)
     _check_session_owner(uid)
-    reports_dir = _session_dir(uid) / "reports"
-    if not reports_dir.exists():
-        abort(404)
-
-    requested_name = Path(filename).name  # strip directory components
-    if not requested_name or _SAFE_FILENAME_RE.search(requested_name):
-        abort(400)
-
-    allowed_reports = {pdf.name: pdf for pdf in reports_dir.glob("*.pdf")}
-    pdf_path = allowed_reports.get(requested_name)
-    if pdf_path is None:
-        abort(404)
-    return send_from_directory(
-        str(reports_dir),
-        safe_name,
+    pdf_path, _ = _validated_report_pdf_path(uid, filename)
+    return send_file(
+        str(pdf_path),
         mimetype="application/pdf",
         conditional=True,   # ETag + 304 support (#14)
         max_age=3600,
@@ -658,25 +663,9 @@ def view_report(uid: str, filename: str):
 def download_report(uid: str, filename: str):
     uid = _safe_uid(uid)
     _check_session_owner(uid)
-
-    requested = Path(filename)
-    # Only allow plain filenames from the route, not subpaths.
-    if requested.name != filename:
-        abort(400)
-    safe_name = requested.name
-    # Strict allowlist: simple filename chars + .pdf extension.
-    if not re.fullmatch(r"[A-Za-z0-9._-]+\.pdf", safe_name):
-        abort(400)
-
-    reports_dir = (_session_dir(uid) / "reports").resolve()
-    pdf_path = (reports_dir / safe_name).resolve()
-    if not pdf_path.is_relative_to(reports_dir):
-        abort(400)
-    if not pdf_path.exists() or not pdf_path.is_file():
-        abort(404)
-    return send_from_directory(
-        directory=str(reports_dir),
-        path=safe_name,
+    pdf_path, safe_name = _validated_report_pdf_path(uid, filename)
+    return send_file(
+        str(pdf_path),
         mimetype="application/pdf",
         as_attachment=True,
         download_name=safe_name,
