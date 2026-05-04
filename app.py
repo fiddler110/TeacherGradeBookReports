@@ -302,6 +302,20 @@ def _cleanup_old_sessions() -> None:
         db.execute("DELETE FROM sessions WHERE created_at < ?", (cutoff,))
 
 
+def _cleanup_user_sessions(username: str) -> None:
+    """Delete all session directories and DB rows belonging to a user."""
+    db = get_db()
+    rows = db.execute(
+        "SELECT uid FROM sessions WHERE username = ?", (username,)
+    ).fetchall()
+    for row in rows:
+        session_path = UPLOAD_ROOT / row["uid"]
+        if session_path.exists():
+            shutil.rmtree(session_path, ignore_errors=True)
+    if rows:
+        db.execute("DELETE FROM sessions WHERE username = ?", (username,))
+
+
 # ── Auth routes ────────────────────────────────────────────────────────────────
 
 @app.route("/login", methods=["GET", "POST"])
@@ -326,6 +340,7 @@ def login():
 @app.route("/logout")
 @login_required
 def logout():
+    _cleanup_user_sessions(current_user.username)
     logout_user()
     return redirect(url_for("login"))
 
