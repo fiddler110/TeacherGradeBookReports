@@ -334,7 +334,15 @@ def login():
         if user and check_password_hash(user.password_hash, password):
             login_user(user)
             next_page = request.args.get("next", "").strip()
-            if next_page and _is_safe_redirect(next_page):
+            next_page = next_page.replace("\\", "")
+            parsed_next = urlparse(next_page)
+            if (
+                next_page
+                and next_page.startswith("/")
+                and not next_page.startswith("//")
+                and not parsed_next.scheme
+                and not parsed_next.netloc
+            ):
                 return redirect(next_page)
             return redirect(url_for("index"))
         flash("Invalid username or password.")
@@ -649,15 +657,23 @@ def view_report(uid: str, filename: str):
 def download_report(uid: str, filename: str):
     uid = _safe_uid(uid)
     _check_session_owner(uid)
-    safe_name = Path(filename).name
-    if _SAFE_FILENAME_RE.search(safe_name):
+
+    requested = Path(filename)
+    # Only allow plain filenames from the route, not subpaths.
+    if requested.name != filename:
         abort(400)
-    reports_dir = _session_dir(uid) / "reports"
-    pdf_path = reports_dir / safe_name
-    if not pdf_path.resolve().is_relative_to(reports_dir.resolve()):
+    safe_name = requested.name
+    # Strict allowlist: simple filename chars + .pdf extension.
+    if not re.fullmatch(r"[A-Za-z0-9._-]+\.pdf", safe_name):
         abort(400)
-    if not pdf_path.exists() or pdf_path.suffix.lower() != ".pdf":
+
+    reports_dir = (_session_dir(uid) / "reports").resolve()
+    pdf_path = (reports_dir / safe_name).resolve()
+    if not pdf_path.is_relative_to(reports_dir):
+        abort(400)
+    if not pdf_path.exists() or not pdf_path.is_file():
         abort(404)
+
     return send_file(
         str(pdf_path),
         mimetype="application/pdf",
