@@ -335,7 +335,15 @@ def login():
         if user and check_password_hash(user.password_hash, password):
             login_user(user)
             next_page = request.args.get("next", "").strip()
-            if next_page and _is_safe_redirect(next_page):
+            next_page = next_page.replace("\\", "")
+            parsed_next = urlparse(next_page)
+            if (
+                next_page
+                and next_page.startswith("/")
+                and not next_page.startswith("//")
+                and not parsed_next.scheme
+                and not parsed_next.netloc
+            ):
                 return redirect(next_page)
             return redirect(url_for("index"))
         flash("Invalid username or password.")
@@ -625,11 +633,11 @@ def view_report(uid: str, filename: str):
     uid = _safe_uid(uid)
     _check_session_owner(uid)
     safe_name = Path(filename).name   # strip directory components
-    if _SAFE_FILENAME_RE.search(safe_name):
+    if not re.fullmatch(r"[A-Za-z0-9 _-]+\.pdf", safe_name):
         abort(400)
-    reports_dir = _session_dir(uid) / "reports"
-    pdf_path = reports_dir / safe_name
-    if not pdf_path.resolve().is_relative_to(reports_dir.resolve()):
+    reports_dir = (_session_dir(uid) / "reports").resolve(strict=False)
+    pdf_path = (reports_dir / safe_name).resolve(strict=False)
+    if pdf_path.parent != reports_dir:
         abort(400)
     if not pdf_path.exists() or pdf_path.suffix.lower() != ".pdf":
         abort(404)
@@ -647,11 +655,13 @@ def download_report(uid: str, filename: str):
     uid = _safe_uid(uid)
     _check_session_owner(uid)
     safe_name = Path(filename).name
-    if _SAFE_FILENAME_RE.search(safe_name):
+    if not re.fullmatch(r"[A-Za-z0-9 _-]+\.pdf", safe_name):
         abort(400)
-    reports_dir = _session_dir(uid) / "reports"
-    target = reports_dir / safe_name
-    if target.suffix.lower() != ".pdf" or not target.exists():
+    reports_dir = (_session_dir(uid) / "reports").resolve(strict=False)
+    pdf_path = (reports_dir / safe_name).resolve(strict=False)
+    if pdf_path.parent != reports_dir:
+        abort(400)
+    if not pdf_path.exists() or pdf_path.suffix.lower() != ".pdf":
         abort(404)
     return send_from_directory(
         directory=str(reports_dir),
