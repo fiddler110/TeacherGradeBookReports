@@ -628,7 +628,14 @@ def results(uid: str):
 
 
 def _validated_report_pdf_path(uid: str, filename: str) -> tuple[Path, str]:
-    safe_name = Path(filename).name   # strip directory components
+    # Require a plain filename (no directory components).
+    if not filename or Path(filename).name != filename:
+        abort(400)
+
+    safe_name = filename
+    # Strict allowlist for report names; must be a PDF.
+    if not re.fullmatch(r"[A-Za-z0-9._ -]+\.pdf", safe_name, flags=re.IGNORECASE):
+        abort(400)
     if _SAFE_FILENAME_RE.search(safe_name):
         abort(400)
 
@@ -638,7 +645,7 @@ def _validated_report_pdf_path(uid: str, filename: str) -> tuple[Path, str]:
 
     if not pdf_path_resolved.is_relative_to(reports_dir_resolved):
         abort(400)
-    if not pdf_path_resolved.is_file() or pdf_path_resolved.suffix.lower() != ".pdf":
+    if not pdf_path_resolved.is_file():
         abort(404)
 
     return pdf_path_resolved, safe_name
