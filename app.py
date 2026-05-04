@@ -624,11 +624,11 @@ def view_report(uid: str, filename: str):
     uid = _safe_uid(uid)
     _check_session_owner(uid)
     safe_name = Path(filename).name   # strip directory components
-    if _SAFE_FILENAME_RE.search(safe_name):
+    if not re.fullmatch(r"[A-Za-z0-9 _-]+\.pdf", safe_name):
         abort(400)
-    reports_dir = _session_dir(uid) / "reports"
-    pdf_path = reports_dir / safe_name
-    if not pdf_path.resolve().is_relative_to(reports_dir.resolve()):
+    reports_dir = (_session_dir(uid) / "reports").resolve(strict=False)
+    pdf_path = (reports_dir / safe_name).resolve(strict=False)
+    if pdf_path.parent != reports_dir:
         abort(400)
     if not pdf_path.exists() or pdf_path.suffix.lower() != ".pdf":
         abort(404)
@@ -646,11 +646,11 @@ def download_report(uid: str, filename: str):
     uid = _safe_uid(uid)
     _check_session_owner(uid)
     safe_name = Path(filename).name
-    if _SAFE_FILENAME_RE.search(safe_name):
+    if not re.fullmatch(r"[A-Za-z0-9 _-]+\.pdf", safe_name):
         abort(400)
-    reports_dir = _session_dir(uid) / "reports"
-    pdf_path = reports_dir / safe_name
-    if not pdf_path.resolve().is_relative_to(reports_dir.resolve()):
+    reports_dir = (_session_dir(uid) / "reports").resolve(strict=False)
+    pdf_path = (reports_dir / safe_name).resolve(strict=False)
+    if pdf_path.parent != reports_dir:
         abort(400)
     if not pdf_path.exists() or pdf_path.suffix.lower() != ".pdf":
         abort(404)
