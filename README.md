@@ -24,6 +24,20 @@ A self-hosted web application for generating professional per-student PDF grade 
 
 ---
 
+## Visuals
+
+### Home Screen
+
+![GradeBook Home Page](assets/GradeBook_HomePage.jpg)
+
+### GradeBook Generated Reports View
+
+![GradeBook Generated Reports](assets/GradeBook_GeneratedReportsView.jpg)
+
+### PDF Report Example
+
+## ![GradeBook PDF Report](assets/GradeBook_ReportExample.jpg)
+
 ## Features
 
 - **Upload → Generate → Download** — drag-and-drop an `.xlsx` or `.xls` file and receive one PDF per student, or a single ZIP containing all reports.
