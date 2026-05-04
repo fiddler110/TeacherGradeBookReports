@@ -24,7 +24,7 @@ A self-hosted web application for generating professional per-student PDF grade 
 
 ---
 
-## Visuals
+## Screenshots
 
 ### Home Screen
 
