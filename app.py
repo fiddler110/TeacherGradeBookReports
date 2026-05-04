@@ -634,7 +634,13 @@ def _validated_report_pdf_path(uid: str, filename: str) -> tuple[Path, str]:
 
     safe_name = filename
     # Strict allowlist for report names; must be a PDF.
-    if not re.fullmatch(r"[A-Za-z0-9._ -]+\.pdf", safe_name, flags=re.IGNORECASE):
+    # Split the extension check from the stem check to avoid ReDoS: a bare
+    # character-class fullmatch has no suffix literal to backtrack into, so
+    # the engine runs in linear time regardless of input content.
+    if not safe_name.lower().endswith(".pdf"):
+        abort(400)
+    stem = safe_name[:-4]
+    if not stem or not re.fullmatch(r"[A-Za-z0-9._ -]+", stem, flags=re.IGNORECASE):
         abort(400)
     if _SAFE_FILENAME_RE.search(safe_name):
         abort(400)
