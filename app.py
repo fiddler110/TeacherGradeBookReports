@@ -618,20 +618,29 @@ def results(uid: str):
     return render_template("results.html", uid=uid, reports=rpts)
 
 
+def _validated_report_pdf_path(uid: str, filename: str) -> tuple[Path, str]:
+    safe_name = Path(filename).name   # strip directory components
+    if _SAFE_FILENAME_RE.search(safe_name):
+        abort(400)
+
+    reports_dir = _session_dir(uid) / "reports"
+    reports_dir_resolved = reports_dir.resolve()
+    pdf_path_resolved = (reports_dir / safe_name).resolve()
+
+    if not pdf_path_resolved.is_relative_to(reports_dir_resolved):
+        abort(400)
+    if not pdf_path_resolved.is_file() or pdf_path_resolved.suffix.lower() != ".pdf":
+        abort(404)
+
+    return pdf_path_resolved, safe_name
+
+
 @app.route("/view/<uid>/<path:filename>")
 @login_required
 def view_report(uid: str, filename: str):
     uid = _safe_uid(uid)
     _check_session_owner(uid)
-    safe_name = Path(filename).name   # strip directory components
-    if _SAFE_FILENAME_RE.search(safe_name):
-        abort(400)
-    reports_dir = _session_dir(uid) / "reports"
-    pdf_path = reports_dir / safe_name
-    if not pdf_path.resolve().is_relative_to(reports_dir.resolve()):
-        abort(400)
-    if not pdf_path.exists() or pdf_path.suffix.lower() != ".pdf":
-        abort(404)
+    pdf_path, _ = _validated_report_pdf_path(uid, filename)
     return send_file(
         str(pdf_path),
         mimetype="application/pdf",
@@ -645,15 +654,7 @@ def view_report(uid: str, filename: str):
 def download_report(uid: str, filename: str):
     uid = _safe_uid(uid)
     _check_session_owner(uid)
-    safe_name = Path(filename).name
-    if _SAFE_FILENAME_RE.search(safe_name):
-        abort(400)
-    reports_dir = _session_dir(uid) / "reports"
-    pdf_path = reports_dir / safe_name
-    if not pdf_path.resolve().is_relative_to(reports_dir.resolve()):
-        abort(400)
-    if not pdf_path.exists() or pdf_path.suffix.lower() != ".pdf":
-        abort(404)
+    pdf_path, safe_name = _validated_report_pdf_path(uid, filename)
     return send_file(
         str(pdf_path),
         mimetype="application/pdf",
