@@ -42,6 +42,8 @@ from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 from werkzeug.security import generate_password_hash, check_password_hash
 
+from werkzeug.middleware.proxy_fix import ProxyFix
+
 from generate_reports import load_grades, build_student_report
 
 # ── App setup ──────────────────────────────────────────────────────────────────
@@ -55,6 +57,10 @@ if not _secret:
 
 app = Flask(__name__)
 app.secret_key = _secret
+
+# Trust exactly one proxy (Caddy) for X-Forwarded-For / X-Forwarded-Proto.
+# This lets the rate-limiter see real client IPs and allows HTTPS detection.
+app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1)
 
 # Session cookie hardening (#2)
 app.config["SESSION_COOKIE_HTTPONLY"] = True
@@ -147,7 +153,7 @@ def _seed_admin() -> None:
     """Create the bootstrap admin account if no users exist yet."""
     username = os.environ.get("ADMIN_USERNAME", "admin")
     password = os.environ.get("ADMIN_PASSWORD", "changeme")
-    school   = os.environ.get("ADMIN_SCHOOL",   "Westfield Academy")
+    school = os.environ.get("ADMIN_SCHOOL",   "Westfield Academy")
     with _startup_db() as db:
         exists = db.execute(
             "SELECT 1 FROM users WHERE username = ?", (username,)
@@ -205,7 +211,7 @@ def load_user(user_id: str):
 
 def _is_safe_redirect(target: str) -> bool:
     """Prevent open-redirect by ensuring target stays on the same host."""
-    ref  = urlparse(request.host_url)
+    ref = urlparse(request.host_url)
     test = urlparse(urljoin(request.host_url, target))
     return test.scheme in ("http", "https") and ref.netloc == test.netloc
 
@@ -313,12 +319,12 @@ def logout():
 @login_required
 def profile():
     if request.method == "POST":
-        school       = request.form.get("school", "").strip()
+        school = request.form.get("school", "").strip()
         new_password = request.form.get("new_password", "").strip()
-        confirm      = request.form.get("confirm_password", "").strip()
+        confirm = request.form.get("confirm_password", "").strip()
 
         updates = []
-        errors  = []
+        errors = []
 
         if school and school != current_user.school:
             get_db().execute(
@@ -379,7 +385,7 @@ def admin_users():
 def admin_add_user():
     username = request.form.get("username", "").strip()
     password = request.form.get("password", "").strip()
-    school   = request.form.get("school",   "").strip()
+    school = request.form.get("school",   "").strip()
     is_admin = bool(request.form.get("is_admin"))
 
     errors = []
@@ -458,7 +464,7 @@ def upload():
 
     uid = str(uuid.uuid4())
     session_dir = _session_dir(uid)
-    xlsx_path   = session_dir / "grades.xlsx"
+    xlsx_path = session_dir / "grades.xlsx"
     file.save(str(xlsx_path))
 
     try:
@@ -488,6 +494,7 @@ def upload():
 
     # Generate PDFs in parallel (#9)
     errors = []
+
     def _gen(args):
         student, out_path, sname = args
         build_student_report(student, out_path, school_name=sname)
@@ -527,14 +534,14 @@ def results(uid: str):
 
     rpts = []
     for pdf in sorted(reports_dir.glob("*.pdf")):
-        stem   = pdf.stem
-        parts  = stem.split("_", 2)
+        stem = pdf.stem
+        parts = stem.split("_", 2)
         if len(parts) == 3:
             display_name = f"{parts[1]} {parts[0]}"
-            student_id   = parts[2]
+            student_id = parts[2]
         else:
             display_name = stem
-            student_id   = ""
+            student_id = ""
         rpts.append({
             "filename":   pdf.name,
             "name":       display_name,
@@ -550,10 +557,10 @@ def results(uid: str):
 @app.route("/view/<uid>/<path:filename>")
 @login_required
 def view_report(uid: str, filename: str):
-    uid       = _safe_uid(uid)
+    uid = _safe_uid(uid)
     _check_session_owner(uid)
     safe_name = Path(filename).name   # strip directory components
-    pdf_path  = _session_dir(uid) / "reports" / safe_name
+    pdf_path = _session_dir(uid) / "reports" / safe_name
     if not pdf_path.exists() or pdf_path.suffix.lower() != ".pdf":
         abort(404)
     return send_file(
@@ -567,10 +574,10 @@ def view_report(uid: str, filename: str):
 @app.route("/download/<uid>/<path:filename>")
 @login_required
 def download_report(uid: str, filename: str):
-    uid       = _safe_uid(uid)
+    uid = _safe_uid(uid)
     _check_session_owner(uid)
     safe_name = Path(filename).name
-    pdf_path  = _session_dir(uid) / "reports" / safe_name
+    pdf_path = _session_dir(uid) / "reports" / safe_name
     if not pdf_path.exists() or pdf_path.suffix.lower() != ".pdf":
         abort(404)
     return send_file(
@@ -586,10 +593,10 @@ def download_report(uid: str, filename: str):
 @app.route("/download-all/<uid>")
 @login_required
 def download_all(uid: str):
-    uid         = _safe_uid(uid)
+    uid = _safe_uid(uid)
     _check_session_owner(uid)
     reports_dir = _session_dir(uid) / "reports"
-    pdfs        = sorted(reports_dir.glob("*.pdf"))
+    pdfs = sorted(reports_dir.glob("*.pdf"))
     if not pdfs:
         abort(404)
 

@@ -1,3 +1,18 @@
+# Secrets — never commit
 .env
+
+# Python
 __pycache__/
 *.pyc
+*.pyo
+
+# Uploaded files / generated reports
+reports/
+
+# Virtual environment
+.venv/
+
+# OS
+.DS_Store
+Thumbs.db
+
