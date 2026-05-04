@@ -24,6 +24,7 @@ from flask import (
     redirect,
     url_for,
     send_file,
+    send_from_directory,
     abort,
     flash,
     stream_with_context,
@@ -649,13 +650,12 @@ def download_report(uid: str, filename: str):
     if _SAFE_FILENAME_RE.search(safe_name):
         abort(400)
     reports_dir = _session_dir(uid) / "reports"
-    pdf_path = reports_dir / safe_name
-    if not pdf_path.resolve().is_relative_to(reports_dir.resolve()):
-        abort(400)
-    if not pdf_path.exists() or pdf_path.suffix.lower() != ".pdf":
+    target = reports_dir / safe_name
+    if target.suffix.lower() != ".pdf" or not target.exists():
         abort(404)
-    return send_file(
-        str(pdf_path),
+    return send_from_directory(
+        directory=str(reports_dir),
+        path=safe_name,
         mimetype="application/pdf",
         as_attachment=True,
         download_name=safe_name,
