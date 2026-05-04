@@ -644,7 +644,7 @@ def _validated_report_pdf_path(uid: str, filename: str) -> tuple[Path, str]:
     return pdf_path_resolved, safe_name
 
 
-@app.route("/view/<uid>/<path:filename>")
+@app.route("/view/<uid>/<filename>")
 @login_required
 def view_report(uid: str, filename: str):
     uid = _safe_uid(uid)
@@ -658,7 +658,7 @@ def view_report(uid: str, filename: str):
     )
 
 
-@app.route("/download/<uid>/<path:filename>")
+@app.route("/download/<uid>/<filename>")
 @login_required
 def download_report(uid: str, filename: str):
     uid = _safe_uid(uid)
