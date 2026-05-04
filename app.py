@@ -674,9 +674,9 @@ def download_report(uid: str, filename: str):
         abort(400)
     if not pdf_path.exists() or not pdf_path.is_file():
         abort(404)
-
-    return send_file(
-        str(pdf_path),
+    return send_from_directory(
+        directory=str(reports_dir),
+        path=safe_name,
         mimetype="application/pdf",
         as_attachment=True,
         download_name=safe_name,
