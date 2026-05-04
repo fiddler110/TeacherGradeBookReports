@@ -649,9 +649,11 @@ def _validated_report_pdf_path(uid: str, filename: str) -> tuple[Path, str]:
 def view_report(uid: str, filename: str):
     uid = _safe_uid(uid)
     _check_session_owner(uid)
-    pdf_path, _ = _validated_report_pdf_path(uid, filename)
-    return send_file(
-        str(pdf_path),
+    _, safe_name = _validated_report_pdf_path(uid, filename)
+    reports_dir = _session_dir(uid) / "reports"
+    return send_from_directory(
+        str(reports_dir),
+        safe_name,
         mimetype="application/pdf",
         conditional=True,   # ETag + 304 support (#14)
         max_age=3600,
@@ -663,9 +665,11 @@ def view_report(uid: str, filename: str):
 def download_report(uid: str, filename: str):
     uid = _safe_uid(uid)
     _check_session_owner(uid)
-    pdf_path, safe_name = _validated_report_pdf_path(uid, filename)
-    return send_file(
-        str(pdf_path),
+    _, safe_name = _validated_report_pdf_path(uid, filename)
+    reports_dir = _session_dir(uid) / "reports"
+    return send_from_directory(
+        str(reports_dir),
+        safe_name,
         mimetype="application/pdf",
         as_attachment=True,
         download_name=safe_name,
