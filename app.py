@@ -628,6 +628,7 @@ def results(uid: str):
 
 
 def _validated_report_pdf_path(uid: str, filename: str) -> tuple[Path, str]:
+<<<<<<< alert-autofix-20
     # Require a plain filename (no directory components).
     if not filename or Path(filename).name != filename:
         abort(400)
@@ -635,44 +636,63 @@ def _validated_report_pdf_path(uid: str, filename: str) -> tuple[Path, str]:
     safe_name = filename
     # Strict allowlist for report names; must be a PDF.
     if not re.fullmatch(r"[A-Za-z0-9._ -]+\.pdf", safe_name, flags=re.IGNORECASE):
+=======
+    safe_name = Path(filename).name   # strip directory components
+    if safe_name != filename:
+>>>>>>> main
         abort(400)
     if _SAFE_FILENAME_RE.search(safe_name):
         abort(400)
 
     reports_dir = _session_dir(uid) / "reports"
     reports_dir_resolved = reports_dir.resolve()
-    pdf_path_resolved = (reports_dir / safe_name).resolve()
 
-    if not pdf_path_resolved.is_relative_to(reports_dir_resolved):
+    matched_pdf: Path | None = None
+    for pdf in reports_dir.glob("*.pdf"):
+        if pdf.name == safe_name:
+            matched_pdf = pdf.resolve()
+            break
+
+    if matched_pdf is None:
+        abort(404)
+    if not matched_pdf.is_relative_to(reports_dir_resolved):
         abort(400)
+<<<<<<< alert-autofix-20
     if not pdf_path_resolved.is_file():
+=======
+    if not matched_pdf.is_file() or matched_pdf.suffix.lower() != ".pdf":
+>>>>>>> main
         abort(404)
 
-    return pdf_path_resolved, safe_name
+    return matched_pdf, safe_name
 
 
-@app.route("/view/<uid>/<path:filename>")
+@app.route("/view/<uid>/<filename>")
 @login_required
 def view_report(uid: str, filename: str):
     uid = _safe_uid(uid)
     _check_session_owner(uid)
-    pdf_path, _ = _validated_report_pdf_path(uid, filename)
-    return send_file(
-        str(pdf_path),
+    _, safe_name = _validated_report_pdf_path(uid, filename)
+    reports_dir = _session_dir(uid) / "reports"
+    return send_from_directory(
+        str(reports_dir),
+        safe_name,
         mimetype="application/pdf",
         conditional=True,   # ETag + 304 support (#14)
         max_age=3600,
     )
 
 
-@app.route("/download/<uid>/<path:filename>")
+@app.route("/download/<uid>/<filename>")
 @login_required
 def download_report(uid: str, filename: str):
     uid = _safe_uid(uid)
     _check_session_owner(uid)
-    pdf_path, safe_name = _validated_report_pdf_path(uid, filename)
-    return send_file(
-        str(pdf_path),
+    _, safe_name = _validated_report_pdf_path(uid, filename)
+    reports_dir = _session_dir(uid) / "reports"
+    return send_from_directory(
+        str(reports_dir),
+        safe_name,
         mimetype="application/pdf",
         as_attachment=True,
         download_name=safe_name,
