@@ -176,14 +176,7 @@
         id="upload-form"
       >
         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
-        <div class="upload-card p-5 text-center mb-3" id="drop-zone">
-          <div class="upload-icon mb-2">
-            <i class="bi bi-file-earmark-spreadsheet"></i>
-          </div>
-          <p class="fw-semibold mb-1" style="color: var(--scdsb-dark)">
-            Drag &amp; drop your file here
-          </p>
-          <p class="text-muted small mb-3">or click to browse your computer</p>
+        <label class="upload-card p-5 text-center mb-3 d-block" id="drop-zone">
           <input
             type="file"
             name="gradefile"
@@ -192,10 +185,17 @@
             class="d-none"
             required
           />
+          <div class="upload-icon mb-2">
+            <i class="bi bi-file-earmark-spreadsheet"></i>
+          </div>
+          <p class="fw-semibold mb-1" style="color: var(--scdsb-dark)">
+            Drag &amp; drop your file here
+          </p>
+          <p class="text-muted small mb-3">or click to browse your computer</p>
           <div id="file-label" class="file-label-text text-muted">
             <i class="bi bi-paperclip me-1"></i>No file selected
           </div>
-        </div>
+        </label>
 
         <div class="d-grid mb-3">
           <button
@@ -233,50 +233,6 @@
     </footer>
 
     <script src="/static/vendor/bootstrap.bundle.min.js"></script>
-    <script>
-      const input = document.getElementById("gradefile");
-      const label = document.getElementById("file-label");
-      const submitBtn = document.getElementById("submit-btn");
-      const dropZone = document.getElementById("drop-zone");
-
-      function applyFile(file) {
-        label.innerHTML = `<i class="bi bi-file-earmark-check me-1" style="color:var(--scdsb-dark)"></i>
-                       <span style="color:var(--scdsb-dark);font-weight:600">${file.name}</span>`;
-        submitBtn.disabled = false;
-      }
-
-      // Click anywhere in the drop zone to open the file picker
-      dropZone.addEventListener("click", () => input.click());
-
-      input.addEventListener("change", () => {
-        if (input.files.length) applyFile(input.files[0]);
-      });
-
-      dropZone.addEventListener("dragover", (e) => {
-        e.preventDefault();
-        dropZone.classList.add("dragover");
-      });
-      dropZone.addEventListener("dragleave", () =>
-        dropZone.classList.remove("dragover"),
-      );
-      dropZone.addEventListener("drop", (e) => {
-        e.preventDefault();
-        dropZone.classList.remove("dragover");
-        const files = e.dataTransfer.files;
-        if (!files.length) return;
-        // Assign the dropped file to the input via DataTransfer
-        const dt = new DataTransfer();
-        dt.items.add(files[0]);
-        input.files = dt.files;
-        applyFile(files[0]);
-      });
-
-      // Show spinner while generating
-      document.getElementById("upload-form").addEventListener("submit", () => {
-        submitBtn.disabled = true;
-        submitBtn.innerHTML =
-          '<span class="spinner-border spinner-border-sm me-2" role="status"></span>Generating Reports…';
-      });
-    </script>
+    <script src="/static/upload.js"></script>
   </body>
 </html>
