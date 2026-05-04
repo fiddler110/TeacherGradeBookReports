@@ -24,6 +24,7 @@ from flask import (
     redirect,
     url_for,
     send_file,
+    send_from_directory,
     abort,
     flash,
     stream_with_context,
@@ -632,8 +633,9 @@ def view_report(uid: str, filename: str):
         abort(400)
     if not pdf_path.exists() or pdf_path.suffix.lower() != ".pdf":
         abort(404)
-    return send_file(
-        str(pdf_path),
+    return send_from_directory(
+        str(reports_dir),
+        safe_name,
         mimetype="application/pdf",
         conditional=True,   # ETag + 304 support (#14)
         max_age=3600,
