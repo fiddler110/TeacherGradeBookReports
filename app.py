@@ -623,15 +623,19 @@ def results(uid: str):
 def view_report(uid: str, filename: str):
     uid = _safe_uid(uid)
     _check_session_owner(uid)
-    safe_name = Path(filename).name   # strip directory components
-    if _SAFE_FILENAME_RE.search(safe_name):
-        abort(400)
     reports_dir = _session_dir(uid) / "reports"
-    pdf_path = reports_dir / safe_name
-    if not pdf_path.resolve().is_relative_to(reports_dir.resolve()):
-        abort(400)
-    if not pdf_path.exists() or pdf_path.suffix.lower() != ".pdf":
+    if not reports_dir.exists():
         abort(404)
+
+    requested_name = Path(filename).name  # strip directory components
+    if not requested_name or _SAFE_FILENAME_RE.search(requested_name):
+        abort(400)
+
+    allowed_reports = {pdf.name: pdf for pdf in reports_dir.glob("*.pdf")}
+    pdf_path = allowed_reports.get(requested_name)
+    if pdf_path is None:
+        abort(404)
+
     return send_file(
         str(pdf_path),
         mimetype="application/pdf",
