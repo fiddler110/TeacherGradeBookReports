@@ -144,10 +144,28 @@ _STYLE_MOD_AVG_VAL = ParagraphStyle(
     textColor=SCHOOL_MID, alignment=TA_CENTER,
 )
 
-
-# ── Custom header/footer canvas ───────────────────────────────────────────────
-class SchoolCanvas:
-    """Mixin – call after building so we can attach page-level decorations."""
+# ── Summary card / scale / module-header styles (hoisted to avoid per-call alloc) ─
+_STYLE_OV_PCT = ParagraphStyle(
+    "OvPct", fontSize=22, fontName="Helvetica-Bold", alignment=TA_CENTER,
+)
+_STYLE_OV_GRADE = ParagraphStyle(
+    "OvGrade", fontSize=22, fontName="Helvetica-Bold", alignment=TA_CENTER,
+)
+_STYLE_OV_CNT = ParagraphStyle(
+    "OvCnt", fontSize=9, fontName="Helvetica",
+    textColor=SCHOOL_MID, leading=12, alignment=TA_CENTER,
+)
+_STYLE_OV_CNT_VAL = ParagraphStyle(
+    "OvCntVal", fontSize=16, fontName="Helvetica-Bold",
+    textColor=SCHOOL_MID, alignment=TA_CENTER,
+)
+_STYLE_SCALE = ParagraphStyle(
+    "Scale", fontSize=7.5, fontName="Helvetica", alignment=TA_CENTER,
+)
+_STYLE_MOD_HDR_AVG = ParagraphStyle(
+    "ModHdrAvg", fontSize=10, fontName="Helvetica-Bold",
+    textColor=WHITE, alignment=TA_RIGHT, rightIndent=4,
+)
 
 
 SCHOOL_NAME = "Westfield Academy"
@@ -286,7 +304,11 @@ def build_student_report(student: dict, output_path: str, school_name: str = SCH
 
     # ── Overall summary ──────────────────────────────────────────────────────
     all_scores = [score for mod in student["modules"].values()
-                  for _, score in mod if score is not None and score > 0.0]
+                  for _, score in mod if isinstance(score, float) and score > 0.0]
+    submitted_count = sum(
+        1 for mod in student["modules"].values()
+        for _, s in mod if (isinstance(s, float) and s > 0.0) or s == "?"
+    )
     total_assignments = sum(len(a) for a in student["modules"].values())
     overall_avg = sum(all_scores) / len(all_scores) if all_scores else 0.0
     overall_pct = f"{overall_avg * 100:.1f}%"
@@ -302,24 +324,15 @@ def build_student_report(student: dict, output_path: str, school_name: str = SCH
                 f' not weighted course grade</i></font>',
                 _STYLE_SUM_LABEL_LEAD,
             ),
-            Paragraph(overall_pct,
-                      ParagraphStyle("OvPct", fontSize=22,
-                                     fontName="Helvetica-Bold",
-                                     textColor=ov_color, alignment=TA_CENTER)),
-            Paragraph(overall_letter,
-                      ParagraphStyle("OvGrade", fontSize=22,
-                                     fontName="Helvetica-Bold",
-                                     textColor=ov_color, alignment=TA_CENTER)),
-            Paragraph("Assignments<br/>Submitted",
-                      ParagraphStyle("OvCnt", fontSize=9,
-                                     fontName="Helvetica",
-                                     textColor=SCHOOL_MID,
-                                     leading=12,
-                                     alignment=TA_CENTER)),
-            Paragraph(f"{len(all_scores)}/{total_assignments}",
-                      ParagraphStyle("OvCntVal", fontSize=16,
-                                     fontName="Helvetica-Bold",
-                                     textColor=SCHOOL_MID, alignment=TA_CENTER)),
+            Paragraph(
+                f'<font color="{ov_color.hexval()}">{overall_pct}</font>',
+                _STYLE_OV_PCT),
+            Paragraph(
+                f'<font color="{ov_color.hexval()}">{overall_letter}</font>',
+                _STYLE_OV_GRADE),
+            Paragraph("Assignments<br/>Submitted", _STYLE_OV_CNT),
+            Paragraph(f"{submitted_count}/{total_assignments}",
+                      _STYLE_OV_CNT_VAL),
         ]
     ]
     summary_table = Table(
@@ -361,8 +374,7 @@ def build_student_report(student: dict, output_path: str, school_name: str = SCH
     for lg, rng, col in scale_items:
         scale_cells.append(
             Paragraph(f'<font color="{col.hexval()}"><b>{lg}</b></font>  {rng}',
-                      ParagraphStyle("Scale", fontSize=7.5, fontName="Helvetica",
-                                     alignment=TA_CENTER))
+                      _STYLE_SCALE)
         )
     scale_table = Table([scale_cells],
                         colWidths=[content_width / 5] * 5,
@@ -385,8 +397,9 @@ def build_student_report(student: dict, output_path: str, school_name: str = SCH
     for mod_num in module_nums:
         assignments = student["modules"][mod_num]
 
-        # Module average (0% scores treated as not submitted)
-        valid_scores = [s for _, s in assignments if s is not None and s > 0.0]
+        # Module average (0% scores treated as not submitted; ? treated as pending)
+        valid_scores = [
+            s for _, s in assignments if isinstance(s, float) and s > 0.0]
         mod_avg = sum(valid_scores) / \
             len(valid_scores) if valid_scores else 0.0
 
@@ -396,9 +409,7 @@ def build_student_report(student: dict, output_path: str, school_name: str = SCH
             Paragraph(
                 f'Avg: <b>{mod_avg * 100:.1f}%</b>  '
                 f'({letter_grade(mod_avg)})',
-                ParagraphStyle("ModAvg", fontSize=10, fontName="Helvetica-Bold",
-                               textColor=WHITE, alignment=TA_RIGHT,
-                               rightIndent=4)
+                _STYLE_MOD_HDR_AVG
             ),
         ]]
         header_table = Table(
@@ -445,8 +456,9 @@ def build_student_report(student: dict, output_path: str, school_name: str = SCH
             row_idx = i + 1
             bg = LIGHT_BG_PALE if row_idx % 2 == 0 else WHITE
             is_not_submitted = False
+            is_submitted_pending = False
 
-            if score is not None and score > 0.0:
+            if isinstance(score, float) and score > 0.0:
                 pct_str = f"{score * 100:.1f}%"
                 lg = letter_grade(score)
                 gc = grade_color(score)
@@ -457,6 +469,12 @@ def build_student_report(student: dict, output_path: str, school_name: str = SCH
                     f'<font color="{gc.hexval()}"><b>{lg}</b></font>', _STYLE_ROW_VAL
                 )
                 bar = pct_bar_table(score, bar_width=col_widths[3] - 16)
+            elif score == "?":
+                val_para = Paragraph(
+                    '<font size="7" color="#B8860B">Submitted</font>', _STYLE_ROW_VAL)
+                grade_para = Paragraph("", _STYLE_ROW_VAL)
+                bar = Paragraph("",    _STYLE_ROW_VAL)
+                is_submitted_pending = True
             else:
                 val_para = Paragraph(
                     '<font size="7">Not Submitted</font>', _STYLE_ROW_VAL)
@@ -479,7 +497,7 @@ def build_student_report(student: dict, output_path: str, school_name: str = SCH
                 ("RIGHTPADDING", (0, row_idx), (-1, row_idx), 5),
                 ("VALIGN",       (0, row_idx), (-1, row_idx), "MIDDLE"),
             ]
-            if is_not_submitted:
+            if is_not_submitted or is_submitted_pending:
                 row_styles.append(("SPAN", (1, row_idx), (2, row_idx)))
 
         # Module average footer row
@@ -577,10 +595,14 @@ def load_grades(xlsx_path: str) -> list[dict]:
             if isinstance(score, (int, float)):
                 score = float(score)
             elif score is not None:
-                try:
-                    score = float(score)
-                except (ValueError, TypeError):
-                    score = None
+                raw = str(score).strip()
+                if raw.rstrip("% ") == "?":
+                    score = "?"
+                else:
+                    try:
+                        score = float(score)
+                    except (ValueError, TypeError):
+                        score = None
             mod_num = get_module_number(asgn_name)
             modules[mod_num].append((asgn_name, score))
 

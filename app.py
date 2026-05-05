@@ -13,6 +13,7 @@ import uuid
 import zipfile
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from contextlib import contextmanager
+from functools import wraps
 from pathlib import Path
 from urllib.parse import urlparse
 
@@ -120,6 +121,10 @@ def get_db() -> sqlite3.Connection:
         DB_PATH.parent.mkdir(parents=True, exist_ok=True)
         g.db = sqlite3.connect(str(DB_PATH))
         g.db.row_factory = sqlite3.Row
+        # WAL mode allows concurrent readers while a writer is active,
+        # which prevents "database is locked" errors with multiple gunicorn workers.
+        g.db.execute("PRAGMA journal_mode=WAL")
+        g.db.execute("PRAGMA busy_timeout=5000")
     return g.db
 
 
@@ -127,7 +132,10 @@ def get_db() -> sqlite3.Connection:
 def close_db(e=None):
     db = g.pop("db", None)
     if db is not None:
-        db.commit()
+        if e is None:
+            db.commit()
+        else:
+            db.rollback()
         db.close()
 
 
@@ -227,6 +235,7 @@ def load_user(user_id: str):
 
 def _is_safe_redirect(target: str) -> bool:
     """Allow only relative paths on the same origin (no scheme, no netloc)."""
+    target = target.replace("\\", "")
     parsed = urlparse(target)
     return (
         not parsed.scheme
@@ -243,6 +252,7 @@ def set_security_headers(resp):
     resp.headers["X-Frame-Options"] = "DENY"
     resp.headers["X-Content-Type-Options"] = "nosniff"
     resp.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+    resp.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
     resp.headers["Content-Security-Policy"] = (
         "default-src 'self'; "
         "script-src 'self'; "
@@ -335,15 +345,7 @@ def login():
         if user and check_password_hash(user.password_hash, password):
             login_user(user)
             next_page = request.args.get("next", "").strip()
-            next_page = next_page.replace("\\", "")
-            parsed_next = urlparse(next_page)
-            if (
-                next_page
-                and next_page.startswith("/")
-                and not next_page.startswith("//")
-                and not parsed_next.scheme
-                and not parsed_next.netloc
-            ):
+            if next_page and _is_safe_redirect(next_page):
                 return redirect(next_page)
             return redirect(url_for("index"))
         flash("Invalid username or password.")
@@ -434,8 +436,6 @@ def profile():
 
 def _admin_required(f):
     """Decorator: requires the logged-in user to have is_admin == True."""
-    from functools import wraps
-
     @wraps(f)
     @login_required
     def decorated(*args, **kwargs):
@@ -542,12 +542,21 @@ def upload():
     try:
         students = load_grades(str(xlsx_path))
     except Exception as exc:
+        shutil.rmtree(session_dir, ignore_errors=True)
         flash(f"Could not read the spreadsheet: {exc}")
         return redirect(url_for("index"))
 
     if not students:
+        shutil.rmtree(session_dir, ignore_errors=True)
         flash("No student data found in the spreadsheet.")
         return redirect(url_for("index"))
+
+    # Register session ownership before generation so _cleanup_old_sessions
+    # can always locate and remove the directory, even if generation fails.
+    get_db().execute(
+        "INSERT OR REPLACE INTO sessions (uid, username, created_at) VALUES (?, ?, ?)",
+        (uid, current_user.username, time.time()),
+    )
 
     reports_dir = session_dir / "reports"
     reports_dir.mkdir(exist_ok=True)
@@ -567,7 +576,8 @@ def upload():
         tasks.append((student, str(reports_dir / filename), school_name,
                       teacher_name, teacher_email))
 
-    # Generate PDFs in parallel (#9)
+    # Generate PDFs in parallel (#9); bound workers to CPU count to avoid
+    # spawning more threads than can run concurrently for CPU-bound PDF work.
     errors = []
 
     def _gen(args):
@@ -576,7 +586,7 @@ def upload():
                              teacher_name=tname, teacher_email=temail)
         return student
 
-    with ThreadPoolExecutor() as executor:
+    with ThreadPoolExecutor(max_workers=os.cpu_count() or 2) as executor:
         futures = {executor.submit(_gen, t): t[0] for t in tasks}
         for future in as_completed(futures):
             student = futures[future]
@@ -589,12 +599,6 @@ def upload():
 
     for msg in errors:
         flash(f"Error generating report for {msg}")
-
-    # Record session ownership (#6)
-    get_db().execute(
-        "INSERT OR REPLACE INTO sessions (uid, username, created_at) VALUES (?, ?, ?)",
-        (uid, current_user.username, time.time()),
-    )
 
     return redirect(url_for("results", uid=uid))
 
