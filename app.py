@@ -345,8 +345,16 @@ def login():
         if user and check_password_hash(user.password_hash, password):
             login_user(user)
             next_page = request.args.get("next", "").strip()
-            if next_page and _is_safe_redirect(next_page):
-                return redirect(next_page)
+            normalized_next = next_page.replace("\\", "")
+            parsed_next = urlparse(normalized_next)
+
+            if (
+                normalized_next
+                and normalized_next.startswith("/")
+                and not parsed_next.scheme
+                and not parsed_next.netloc
+            ):
+                return redirect(normalized_next)
             return redirect(url_for("index"))
         flash("Invalid username or password.")
     return render_template("login.html", next=request.args.get("next", ""))
