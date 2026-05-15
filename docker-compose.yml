@@ -18,6 +18,8 @@ services:
       GUNICORN_WORKERS: ${GUNICORN_WORKERS:-2}
       # Set to false when running over plain HTTP (e.g. local dev).
       COOKIE_SECURE: ${COOKIE_SECURE:-true}
+      # Set the container timezone so generated dates match local time.
+      TZ: ${TZ:-America/Toronto}
     # ── Security hardening ───────────────────────────────────────────────────
     # Prevent the process from gaining new privileges via setuid/setgid binaries
     security_opt:

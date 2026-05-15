@@ -146,10 +146,12 @@ _STYLE_MOD_AVG_VAL = ParagraphStyle(
 
 # ── Summary card / scale / module-header styles (hoisted to avoid per-call alloc) ─
 _STYLE_OV_PCT = ParagraphStyle(
-    "OvPct", fontSize=22, fontName="Helvetica-Bold", alignment=TA_CENTER,
+    "OvPct", fontSize=22, fontName="Helvetica-Bold",
+    alignment=TA_CENTER, leading=22, spaceAfter=0, spaceBefore=0,
 )
 _STYLE_OV_GRADE = ParagraphStyle(
-    "OvGrade", fontSize=22, fontName="Helvetica-Bold", alignment=TA_CENTER,
+    "OvGrade", fontSize=22, fontName="Helvetica-Bold",
+    alignment=TA_CENTER, leading=22, spaceAfter=0, spaceBefore=0,
 )
 _STYLE_OV_CNT = ParagraphStyle(
     "OvCnt", fontSize=9, fontName="Helvetica",
@@ -346,6 +348,7 @@ def build_student_report(student: dict, output_path: str, school_name: str = SCH
             content_width * 0.22,
             content_width * 0.14,
         ],
+        rowHeights=[44],
     )
     summary_table.setStyle(TableStyle([
         ("BACKGROUND",   (0, 0), (-1, -1), LIGHT_BG_PALE),
@@ -355,6 +358,7 @@ def build_student_report(student: dict, output_path: str, school_name: str = SCH
         ("LINEBEFORE",   (2, 0), (2, 0), 1, LIGHT_BG),
         ("LINEBEFORE",   (3, 0), (3, 0), 1, LIGHT_BG),
         ("LINEBEFORE",   (4, 0), (4, 0), 1, LIGHT_BG),
+        ("ALIGN",        (1, 0), (2, 0), "CENTER"),
         ("VALIGN",       (0, 0), (-1, -1), "MIDDLE"),
         ("LEFTPADDING",  (0, 0), (-1, -1), 8),
         ("RIGHTPADDING", (0, 0), (-1, -1), 8),
