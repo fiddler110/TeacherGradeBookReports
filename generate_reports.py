@@ -303,32 +303,34 @@ def build_student_report(student: dict, output_path: str, school_name: str = SCH
                             color=LIGHT_BG, spaceAfter=8))
 
     # ── Overall summary ──────────────────────────────────────────────────────
-    all_scores = [score for mod in student["modules"].values()
-                  for _, score in mod if isinstance(score, float) and score > 0.0]
     submitted_count = sum(
         1 for mod in student["modules"].values()
         for _, s in mod if (isinstance(s, float) and s > 0.0) or s == "?"
     )
     total_assignments = sum(len(a) for a in student["modules"].values())
-    overall_avg = sum(all_scores) / len(all_scores) if all_scores else 0.0
-    overall_pct = f"{overall_avg * 100:.1f}%"
-    overall_letter = letter_grade(overall_avg)
-    ov_color = grade_color(overall_avg)
+
+    # Use weighted grade from Column D; fall back to computed average if absent
+    all_scores = [score for mod in student["modules"].values()
+                  for _, score in mod if isinstance(score, float) and score > 0.0]
+    fallback_avg = sum(all_scores) / len(all_scores) if all_scores else 0.0
+    display_grade = student.get("weighted_grade")
+    if display_grade is None:
+        display_grade = fallback_avg
+    display_pct = f"{display_grade * 100:.1f}%"
+    display_letter = letter_grade(display_grade)
+    ov_color = grade_color(display_grade)
 
     summary_data = [
         [
             Paragraph(
-                f'SUBMITTED WORK AVERAGE<br/>'
-                f'<font size="7" color="{SCHOOL_MID.hexval()}">'
-                f'<i>average of graded assignments only —'
-                f' not weighted course grade</i></font>',
+                'Current Grade',
                 _STYLE_SUM_LABEL_LEAD,
             ),
             Paragraph(
-                f'<font color="{ov_color.hexval()}">{overall_pct}</font>',
+                f'<font color="{ov_color.hexval()}">{display_pct}</font>',
                 _STYLE_OV_PCT),
             Paragraph(
-                f'<font color="{ov_color.hexval()}">{overall_letter}</font>',
+                f'<font color="{ov_color.hexval()}">{display_letter}</font>',
                 _STYLE_OV_GRADE),
             Paragraph("Assignments<br/>Submitted", _STYLE_OV_CNT),
             Paragraph(f"{submitted_count}/{total_assignments}",
@@ -547,8 +549,7 @@ def build_student_report(student: dict, output_path: str, school_name: str = SCH
     else:
         contact = f"Please contact {full_name}'s teacher if you have any questions."
     story.append(Paragraph(
-        "This report is generated automatically from official school records. "
-        + contact,
+        contact,
         style_note,
     ))
 
@@ -589,6 +590,20 @@ def load_grades(xlsx_path: str) -> list[dict]:
         last_name = str(row[1]).strip() if row[1] else ""
         first_name = str(row[2]).strip() if row[2] else ""
 
+        # Column D (index 3) — weighted grade
+        weighted_grade: float | None = None
+        weighted_raw = row[3] if len(row) > 3 else None
+        if isinstance(weighted_raw, (int, float)):
+            wv = float(weighted_raw)
+            weighted_grade = wv / 100.0 if wv > 1.0 else wv
+        elif weighted_raw is not None:
+            raw_w = str(weighted_raw).strip().rstrip("%")
+            try:
+                wv = float(raw_w)
+                weighted_grade = wv / 100.0 if wv > 1.0 else wv
+            except (ValueError, TypeError):
+                weighted_grade = None
+
         modules: dict[str, list] = defaultdict(list)
         for col_idx, asgn_name in assignment_cols:
             score = row[col_idx] if col_idx < len(row) else None
@@ -607,10 +622,11 @@ def load_grades(xlsx_path: str) -> list[dict]:
             modules[mod_num].append((asgn_name, score))
 
         students.append({
-            "id":      student_id,
-            "last":    last_name,
-            "first":   first_name,
-            "modules": dict(modules),
+            "id":            student_id,
+            "last":          last_name,
+            "first":         first_name,
+            "weighted_grade": weighted_grade,
+            "modules":       dict(modules),
         })
 
     return students
