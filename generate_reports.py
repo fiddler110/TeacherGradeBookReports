@@ -305,14 +305,16 @@ def build_student_report(student: dict, output_path: str, school_name: str = SCH
                             color=LIGHT_BG, spaceAfter=8))
 
     # ── Overall summary ──────────────────────────────────────────────────────
+    _all_sections = list(student["modules"].values()) + \
+        list(student.get("journals", {}).values())
     submitted_count = sum(
-        1 for mod in student["modules"].values()
+        1 for mod in _all_sections
         for _, s in mod if (isinstance(s, float) and s > 0.0) or s == "?"
     )
-    total_assignments = sum(len(a) for a in student["modules"].values())
+    total_assignments = sum(len(a) for a in _all_sections)
 
     # Use weighted grade from Column D; fall back to computed average if absent
-    all_scores = [score for mod in student["modules"].values()
+    all_scores = [score for mod in _all_sections
                   for _, score in mod if isinstance(score, float) and score > 0.0]
     fallback_avg = sum(all_scores) / len(all_scores) if all_scores else 0.0
     display_grade = student.get("weighted_grade")
@@ -537,6 +539,159 @@ def build_student_report(student: dict, output_path: str, school_name: str = SCH
         story.append(KeepTogether([header_table, assign_table]))
         story.append(Spacer(1, 10))
 
+    # ── Journals section ─────────────────────────────────────────────────────
+    journals = student.get("journals", {})
+    if journals:
+        journal_nums = sorted(
+            journals.keys(), key=lambda x: int(x) if x.isdigit() else x
+        )
+
+        # Top-level "Journals" banner (SCHOOL_BLUE to distinguish from module headers)
+        journals_banner_data = [[Paragraph("  Journals", style_section)]]
+        journals_banner = Table(
+            journals_banner_data,
+            colWidths=[content_width],
+            rowHeights=[20],
+        )
+        journals_banner.setStyle(TableStyle([
+            ("BACKGROUND",    (0, 0), (-1, -1), SCHOOL_BLUE),
+            ("VALIGN",        (0, 0), (-1, -1), "MIDDLE"),
+            ("LEFTPADDING",   (0, 0), (-1, -1), 0),
+            ("RIGHTPADDING",  (0, 0), (-1, -1), 4),
+            ("TOPPADDING",    (0, 0), (-1, -1), 2),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 2),
+        ]))
+
+        for idx, j_num in enumerate(journal_nums):
+            j_assignments = journals[j_num]
+            j_valid = [s for _, s in j_assignments if isinstance(
+                s, float) and s > 0.0]
+            j_avg = sum(j_valid) / len(j_valid) if j_valid else 0.0
+
+            j_header_data = [[
+                Paragraph(f"  Journal {j_num}", style_section),
+                Paragraph(
+                    f'Avg: <b>{j_avg * 100:.1f}%</b>  ({letter_grade(j_avg)})',
+                    _STYLE_MOD_HDR_AVG,
+                ),
+            ]]
+            j_header_table = Table(
+                j_header_data,
+                colWidths=[content_width * 0.6, content_width * 0.4],
+                rowHeights=[20],
+            )
+            j_header_table.setStyle(TableStyle([
+                ("BACKGROUND",    (0, 0), (-1, -1), SCHOOL_MID),
+                ("VALIGN",        (0, 0), (-1, -1), "MIDDLE"),
+                ("LEFTPADDING",   (0, 0), (-1, -1), 0),
+                ("RIGHTPADDING",  (0, 0), (-1, -1), 4),
+                ("TOPPADDING",    (0, 0), (-1, -1), 2),
+                ("BOTTOMPADDING", (0, 0), (-1, -1), 2),
+            ]))
+
+            j_col_widths = [
+                content_width * 0.40,
+                content_width * 0.15,
+                content_width * 0.10,
+                content_width * 0.35,
+            ]
+            j_table_rows = [[
+                Paragraph("Assignment", _STYLE_COL_HDR),
+                Paragraph("Score",      _STYLE_COL_HDR_C),
+                Paragraph("Grade",      _STYLE_COL_HDR_C2),
+                Paragraph("Visual",     _STYLE_COL_HDR_R),
+            ]]
+            j_row_styles = [
+                ("BACKGROUND",    (0, 0), (-1, 0), LIGHT_BG),
+                ("LINEBELOW",     (0, 0), (-1, 0), 1, SCHOOL_BLUE),
+                ("FONTNAME",      (0, 0), (-1, 0), "Helvetica-Bold"),
+                ("FONTSIZE",      (0, 0), (-1, 0), 8),
+                ("TOPPADDING",    (0, 0), (-1, 0), 3),
+                ("BOTTOMPADDING", (0, 0), (-1, 0), 3),
+            ]
+
+            for i, (asgn_name, score) in enumerate(j_assignments):
+                row_idx = i + 1
+                bg = LIGHT_BG_PALE if row_idx % 2 == 0 else WHITE
+                is_not_submitted = False
+                is_submitted_pending = False
+
+                if isinstance(score, float) and score > 0.0:
+                    pct_str = f"{score * 100:.1f}%"
+                    lg = letter_grade(score)
+                    gc = grade_color(score)
+                    val_para = Paragraph(
+                        f'<font color="{gc.hexval()}">{pct_str}</font>', _STYLE_ROW_VAL
+                    )
+                    grade_para = Paragraph(
+                        f'<font color="{gc.hexval()}"><b>{lg}</b></font>', _STYLE_ROW_VAL
+                    )
+                    bar = pct_bar_table(score, bar_width=j_col_widths[3] - 16)
+                elif score == "?":
+                    val_para = Paragraph(
+                        '<font size="7" color="#B8860B">Submitted</font>', _STYLE_ROW_VAL)
+                    grade_para = Paragraph("", _STYLE_ROW_VAL)
+                    bar = Paragraph("", _STYLE_ROW_VAL)
+                    is_submitted_pending = True
+                else:
+                    val_para = Paragraph(
+                        '<font size="7">Not Submitted</font>', _STYLE_ROW_VAL)
+                    grade_para = Paragraph("", _STYLE_ROW_VAL)
+                    bar = Paragraph("", _STYLE_ROW_VAL)
+                    is_not_submitted = True
+
+                j_table_rows.append([
+                    Paragraph(asgn_name, _STYLE_ROW_NAME),
+                    val_para,
+                    grade_para,
+                    bar,
+                ])
+                j_row_styles += [
+                    ("BACKGROUND",    (0, row_idx), (-1, row_idx), bg),
+                    ("TOPPADDING",    (0, row_idx), (-1, row_idx), 4),
+                    ("BOTTOMPADDING", (0, row_idx), (-1, row_idx), 4),
+                    ("LEFTPADDING",   (0, row_idx), (-1, row_idx), 5),
+                    ("RIGHTPADDING",  (0, row_idx), (-1, row_idx), 5),
+                    ("VALIGN",        (0, row_idx), (-1, row_idx), "MIDDLE"),
+                ]
+                if is_not_submitted or is_submitted_pending:
+                    j_row_styles.append(("SPAN", (1, row_idx), (2, row_idx)))
+
+            j_table_rows.append([
+                Paragraph("Journal Average", _STYLE_MOD_AVG_ROW),
+                Paragraph(f"{j_avg * 100:.1f}%", _STYLE_MOD_AVG_VAL),
+                Paragraph(letter_grade(j_avg),    _STYLE_MOD_AVG_VAL),
+                pct_bar_table(j_avg, bar_width=j_col_widths[3] - 16),
+            ])
+            j_footer_idx = len(j_table_rows) - 1
+            j_row_styles += [
+                ("BACKGROUND",    (0, j_footer_idx), (-1, j_footer_idx), LIGHT_BG),
+                ("LINEABOVE",     (0, j_footer_idx),
+                 (-1, j_footer_idx), 1, SCHOOL_BLUE),
+                ("FONTNAME",      (0, j_footer_idx),
+                 (-1, j_footer_idx), "Helvetica-Bold"),
+                ("TOPPADDING",    (0, j_footer_idx), (-1, j_footer_idx), 4),
+                ("BOTTOMPADDING", (0, j_footer_idx), (-1, j_footer_idx), 4),
+                ("LEFTPADDING",   (0, j_footer_idx), (-1, j_footer_idx), 5),
+                ("RIGHTPADDING",  (0, j_footer_idx), (-1, j_footer_idx), 5),
+                ("VALIGN",        (0, j_footer_idx), (-1, j_footer_idx), "MIDDLE"),
+            ]
+            j_row_styles += [
+                ("BOX",       (0, 0), (-1, -1), 1, SCHOOL_BLUE),
+                ("LINEBELOW", (0, -1), (-1, -1), 1, SCHOOL_BLUE),
+            ]
+
+            j_assign_table = Table(j_table_rows, colWidths=j_col_widths)
+            j_assign_table.setStyle(TableStyle(j_row_styles))
+
+            # Keep the banner with the first journal group so it never floats alone
+            if idx == 0:
+                story.append(KeepTogether(
+                    [journals_banner, j_header_table, j_assign_table]))
+            else:
+                story.append(KeepTogether([j_header_table, j_assign_table]))
+            story.append(Spacer(1, 10))
+
     # ── Closing note ─────────────────────────────────────────────────────────
     story.append(HRFlowable(width="100%", thickness=1,
                             color=LIGHT_BG, spaceBefore=4, spaceAfter=4))
@@ -567,6 +722,14 @@ def get_module_number(assignment_name: str) -> str:
     if m:
         return m.group(1)
     return "Other"
+
+
+def get_journal_number(assignment_name: str) -> str | None:
+    """If assignment uses journal notation (J1.1, J2.3, etc.) return the group number."""
+    m = re.match(r"^[Jj](\d+)\.", assignment_name.strip())
+    if m:
+        return m.group(1)
+    return None
 
 
 def load_grades(xlsx_path: str) -> list[dict]:
@@ -609,6 +772,7 @@ def load_grades(xlsx_path: str) -> list[dict]:
                 weighted_grade = None
 
         modules: dict[str, list] = defaultdict(list)
+        journals: dict[str, list] = defaultdict(list)
         for col_idx, asgn_name in assignment_cols:
             score = row[col_idx] if col_idx < len(row) else None
             if isinstance(score, (int, float)):
@@ -622,8 +786,12 @@ def load_grades(xlsx_path: str) -> list[dict]:
                         score = float(score)
                     except (ValueError, TypeError):
                         score = None
-            mod_num = get_module_number(asgn_name)
-            modules[mod_num].append((asgn_name, score))
+            jnum = get_journal_number(asgn_name)
+            if jnum is not None:
+                journals[jnum].append((asgn_name, score))
+            else:
+                mod_num = get_module_number(asgn_name)
+                modules[mod_num].append((asgn_name, score))
 
         students.append({
             "id":            student_id,
@@ -631,6 +799,7 @@ def load_grades(xlsx_path: str) -> list[dict]:
             "first":         first_name,
             "weighted_grade": weighted_grade,
             "modules":       dict(modules),
+            "journals":      dict(journals),
         })
 
     return students
